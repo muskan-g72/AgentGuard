@@ -45,9 +45,9 @@ def stage(request: StageRequest) -> dict:
     cart_url = str(request.cart_url)
     log_event(task_id, "stage_requested", {"cart_url": cart_url, "scenario": request.scenario})
     if not _GUARD_AVAILABLE or DEMO_CONTRACT is None or check is None:
-        decision = {"result": "allow", "reasons": ["Guard package is unavailable."], "remove_item_ids": [], "flags": []}
+        decision = {"result": "block", "reasons": ["Guard package is unavailable."], "remove_item_ids": [], "flags": [], "differing_fields": []}
         log_event(task_id, "guard_stubbed", decision)
-        return {"cart": None, "decision": decision}
+        raise HTTPException(status_code=503, detail=decision)
     try:
         cart, hidden_text = stage_cart_details(cart_url, DEMO_CONTRACT, scenario=request.scenario)
     except StagingError as error:

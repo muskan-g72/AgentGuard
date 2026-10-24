@@ -14,24 +14,27 @@ from .models import Contract
 
 
 DEMO_CONTRACT = Contract(
-    route="Ludhiana-Delhi",
+    route={"from": "Ludhiana", "to": "Delhi"},
     date="2026-10-25",
     quantity=1,
     max_total=1000,
     allow_extras=False,
+    source="fallback",
 )
 
 _SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "route": {"type": "string"},
+        "route": {"type": "object", "properties": {"from": {"type": "string"}, "to": {"type": "string"}}, "required": ["from", "to"], "additionalProperties": False},
         "date": {"type": "string"},
         "quantity": {"type": "integer", "minimum": 1},
         "max_total": {"type": "number", "minimum": 0},
         "allow_extras": {"type": "boolean"},
+        "requirements": {"type": "object"},
+        "source": {"type": "string", "enum": ["parsed", "fallback"]},
     },
-    "required": ["route", "date", "quantity", "max_total", "allow_extras"],
+    "required": ["route", "date", "quantity", "max_total", "allow_extras", "requirements", "source"],
 }
 
 

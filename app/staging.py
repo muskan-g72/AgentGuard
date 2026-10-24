@@ -31,7 +31,7 @@ def _goal(contract: Contract, *, retry: bool = False) -> str:
     reminder = " Return only the JSON object. Do not include Markdown, explanations, or extra keys." if retry else ""
     return (
         "Stage a train cart for this authorized contract: "
-        f"route {contract.route}; date {contract.date}; quantity {contract.quantity}; "
+        f"route {contract.route.from_}-{contract.route.to}; date {contract.date}; quantity {contract.quantity}; "
         f"maximum total Rs {contract.max_total}; extras allowed: {contract.allow_extras}. "
         "Select the matching ticket and go to checkout. Do NOT click Confirm, Pay, "
         "Place order, Submit, or any equivalent final-action button. "
@@ -81,8 +81,11 @@ def _result_object(raw: dict) -> dict:
 
 def _parse(raw: dict) -> tuple[Cart, list[str]]:
     result = _result_object(raw)
-    cart = Cart.model_validate(result.get("cart"))
-    hidden_text = result.get("hidden_text", [])
+    cart_data = result.get("cart")
+    if isinstance(cart_data, dict) and "hidden_text" not in cart_data:
+        cart_data = {**cart_data, "hidden_text": result.get("hidden_text", [])}
+    cart = Cart.model_validate(cart_data)
+    hidden_text = cart.hidden_text
     if not isinstance(hidden_text, list) or not all(isinstance(text, str) for text in hidden_text):
         raise StagingError("The agent result field hidden_text must be a list of strings.")
     return cart, hidden_text

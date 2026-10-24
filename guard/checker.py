@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from .hidden_text import scan_hidden_text
 from .models import Cart, Contract, Decision, Item
 
 
-def _money(amount: Decimal) -> str:
+def _money(amount: int) -> str:
     """Format an exact decimal amount for a user-facing reason."""
 
-    return f"Rs {amount:,.2f}" if amount % 1 else f"Rs {amount:,.0f}"
+    return f"Rs {amount:,}"
 
 
 def _item_name(item: Item) -> str:
@@ -48,12 +46,11 @@ def check(contract: Contract, cart: Cart, hidden_text: list[str] = []) -> Decisi
         return Decision(result="ask", reasons=missing)
 
     # 2. Ticket route and date.
-    matching_tickets = [
-        item for item in ticket_items if item.route == contract.route and item.date == contract.date
-    ]
+    expected_route = f"{contract.route.from_}-{contract.route.to}"
+    matching_tickets = [item for item in ticket_items if item.route == expected_route and item.date == contract.date]
     if len(matching_tickets) != 1:
         return _block([
-            f"The cart must contain exactly one ticket for {contract.route} on {contract.date}."
+            f"The cart must contain exactly one ticket for {expected_route} on {contract.date}."
         ])
 
     # 3. Quantity.
@@ -78,7 +75,7 @@ def check(contract: Contract, cart: Cart, hidden_text: list[str] = []) -> Decisi
         ])
 
     # 6. Total consistency.
-    item_sum = sum((item.price for item in cart.items), start=Decimal("0"))
+    item_sum = sum(item.price for item in cart.items)
     if cart.total != item_sum:
         return _block([
             f"The cart total of {_money(cart.total)} does not match the item total of {_money(item_sum)}."
