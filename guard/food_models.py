@@ -54,6 +54,9 @@ class FoodItem(Message):
     id: str = Field(min_length=1)
     type: Literal["dish", "tip", "donation", "membership", "fee"]
     price: Money
+    # A platform may expose vegetarian evidence per dish or only as a cart-wide
+    # flag. Unknown remains explicit rather than being coerced to false.
+    veg: bool | None = None
 
 
 class StagedFoodCart(Message):
@@ -62,8 +65,13 @@ class StagedFoodCart(Message):
     cart_id: str = Field(min_length=1)
     items: list[FoodItem]
     coupon_applied: str | None = None
-    quantity: Count
-    total: Money
+    # ``None`` represents unavailable checkout evidence; the food checker then
+    # returns ASK rather than treating it as an allowed zero.
+    quantity: Count | None = None
+    total: Money | None = None
     eta_minutes: int = Field(strict=True, ge=0)
     veg: bool
+    # Coupon details are optional because some platforms only reveal a code in
+    # the cart. A code without details is not assumed eligible by the checker.
+    coupon_details: Coupon | None = None
     hidden_text: list[str] = Field(default_factory=list)
