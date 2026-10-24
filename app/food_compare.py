@@ -110,7 +110,7 @@ def _option_schema() -> dict:
 def _staged_cart_schema() -> dict:
     money = {"type": "integer", "minimum": 0}
     item = {"type": "object", "properties": {"id": {"type": "string"}, "type": {"type": "string", "enum": ["dish", "tip", "donation", "membership", "fee"]}, "price": money}, "required": ["id", "type", "price"]}
-    cart = {"type": "object", "properties": {"cart_id": {"type": "string"}, "items": {"type": "array", "items": item}, "coupon_applied": {"type": "string", "nullable": True}, "quantity": {"type": "integer", "minimum": 1}, "total": money, "eta_minutes": {"type": "integer", "minimum": 0}, "veg": {"type": "boolean"}, "hidden_text": {"type": "array", "items": {"type": "string"}}}, "required": ["cart_id", "items", "coupon_applied", "quantity", "total", "eta_minutes", "veg", "hidden_text"]}
+    cart = {"type": "object", "properties": {"cart_id": {"type": "string"}, "items": {"type": "array", "items": item}, "coupon_applied": {"type": "string", "nullable": True}, "quantity": {"type": "integer", "minimum": 1, "nullable": True}, "total": {"type": "integer", "minimum": 0, "nullable": True}, "eta_minutes": {"type": "integer", "minimum": 0}, "veg": {"type": "boolean"}, "hidden_text": {"type": "array", "items": {"type": "string"}}}, "required": ["cart_id", "items", "coupon_applied", "quantity", "total", "eta_minutes", "veg", "hidden_text"]}
     return {"type": "object", "properties": {"cart": cart}, "required": ["cart"]}
 
 

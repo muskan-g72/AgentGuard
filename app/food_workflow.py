@@ -61,6 +61,9 @@ def commit_food_task(store: Store, task_id: str, browser: FoodBrowser, option: F
         if stored_decision.get("result") != "allow" or decision.result != "allow":
             _event(store, task_id, task["status"], "Food commit refused: latest decision is not allow.", "food_commit_refused", reason="decision is not allow")
             return False
+        if cart.total is None:
+            _event(store, task_id, task["status"], "Food commit refused: cart total is unknown.", "food_commit_refused", reason="cart total is unknown")
+            return False
     else:
         _event(store, task_id, "committing", "Guard-off demo bypassed food check and commit gate.", "food_guard_off_bypass", cart=cart.model_dump(mode="json"))
 
@@ -70,7 +73,7 @@ def commit_food_task(store: Store, task_id: str, browser: FoodBrowser, option: F
     except Exception as error:
         _event(store, task_id, "failed", "Food commit run failed; no confirmed order was recorded.", "food_commit_failed", error=type(error).__name__)
         return False
-    if type(result.get("total")) is not int or result.get("total") != cart.total:
+    if cart.total is None or type(result.get("total")) is not int or result.get("total") != cart.total:
         _event(store, task_id, "failed", "Food commit total differs from the allowed cart total.", "food_total_mismatch", approved_total=cart.total, confirmed_total=result.get("total"))
         return False
     if not isinstance(result.get("order_id"), str) or not result["order_id"]:
