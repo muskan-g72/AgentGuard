@@ -1,5 +1,9 @@
 ﻿# AgentGuard demo booking site
 
+> **Current local workflow:** see [docs/current-status.md](docs/current-status.md) for server-backed checking, fixing and confirmation, verified results, and PowerShell commands. Serve the website through `app.main:app`; a separate static HTTP server cannot confirm orders. The sections below describe the earlier static prototype and are retained as historical context. Checkout no longer performs the unconditional confirmation described below.
+
+Public deployment preparation and exact commands: [docs/public-demo-readiness.md](docs/public-demo-readiness.md). The public site still serves the legacy version until an explicitly authorized deployment occurs.
+
 ## Problem
 
 A web agent can stage a booking that differs from the user's instructions. AgentGuard provides a small train-booking site and a separate Python checker for inspecting that cart before a simulated order. The demo request is: "Book one Ludhiana-to-Delhi ticket for 25 October 2026, under Rs 1,000, without extras." The shared contract treats Rs 1,000 as an inclusive maximum, so s1 allows exactly Rs 1,000.
@@ -84,7 +88,7 @@ See s4's recommendation on [its search page](http://localhost:8000/index.html?sc
 
 Implemented: static search and booking pages, URL cart state, Python checker, and staging/replay API code. The local Python demo returns allow, block, block, block, ask, ask for s1-s6, and allow for the separately constructed repaired-s2 fixture. This is not an external agent evaluation.
 
-Local validation on Python 3.13.2: all 9 existing tests passed. The documented virtual-environment install, demo, and s2 replay commands worked. JavaScript syntax and VM checks passed for filtering, URL restoration, checkbox changes, group pricing, confirmation, and six scenario states. Those checks use a simulated DOM, not a browser. Browser verification remains incomplete.
+Local validation on Python 3.13.2: all 30 tests passed, including fixture preservation, literal row-ID validation, and extraction retry/error cases with mocked agent responses. The documented virtual-environment install, demo, and s2 replay commands worked. JavaScript syntax and VM checks passed for filtering, URL restoration, checkbox changes, group pricing, confirmation, and six scenario states. Those checks use a simulated DOM, not a browser. Browser verification remains incomplete.
 
 **The site's Confirm button does not call or enforce the Python checker.** It navigates directly to confirmation, including for carts that would be blocked or need review.
 
@@ -101,7 +105,8 @@ Planned: the complete Run 1 → check → Run 2 repair → recheck → Run 3 com
 - Browser carts have no server persistence. The optional backend logs events in `data/events.db`, which is not an order database.
 - Contract parsing silently falls back to the demo contract on missing keys or API/validation errors. No confirmation flow exists for that fallback. Live response handling is unverified.
 - The API contains an allow stub if the guard is unavailable, but staging imports guard models directly before this fallback. Guard-free startup is not established.
-- Replay does not verify that a URL matches the saved cart. Live runs overwrite the recording for their scenario.
+- Replay does not verify that a URL matches the saved cart. Live responses are saved separately under `recordings/live/` with unique filenames, so they cannot overwrite the stable s2 fixture.
+- Live staging requires checkout HTML containing literal row IDs and types. Missing or inconsistent evidence causes one retry, then an extraction error instead of a cart with unverified removal targets. This checks agent-supplied HTML, not an independently captured DOM. Live compliance with these instructions has not been verified.
 - No automated browser suite is included. Browser verification was interrupted when the user stopped Computer Use.
 
 ## Could not verify from the code

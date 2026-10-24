@@ -1,5 +1,7 @@
 ﻿# Architecture
 
+> **Historical prototype snapshot.** The current implementation is documented in [current-status.md](current-status.md). It replaces the unconditional confirmation and missing approval/order flow described below. Existing notes are preserved for comparison.
+
 ## Intended loop and current implementation
 
 1. **Confirm instructions — Planned.** The user would review a contract before an agent starts. `guard/contract_parser.py` can attempt external LLM parsing with a fixed demo fallback. No UI confirms its output. The API and CLI use `DEMO_CONTRACT` directly.
@@ -56,7 +58,9 @@ These are the shared field names. `guard/models.py` validates each nested model 
 
 `result` is one of allow, block, or ask. Item types are ticket, insurance, meal, and fee. Quantity is intended to mean authorized passengers. `max_total` is inclusive, so the demo allows exactly Rs 1,000.
 
-The staging response uses `{"cart": {...}, "hidden_text": []}`. Hidden text is supplied separately to `check()`, not stored in Cart. Missing information uses `"total": null` and `"passengers": null`. The staging prompt requests those fields but does not explicitly explain s6's unknown-to-null mapping. Replay reads saved data rather than extracting the site.
+The live staging response uses `{"cart": {...}, "hidden_text": [], "checkout_html": "<section id=...>...</section>", "extraction_error": null}`. `checkout_html` must contain the literal checkout cart HTML, including each row's `data-item-id` and `data-item-type` attributes. Staging compares every returned item ID and type with those rows and rejects missing, duplicate, or mismatched IDs. If the attributes cannot be read, the agent must return `cart: null` and an explanation in `extraction_error` instead of inventing IDs. Staging retries one invalid extraction, then reports an error without returning a cart for removal. This validates agent-supplied HTML; it is not independent proof of the remote DOM. The shared Contract, Cart, and Decision models are unchanged. The curated replay fixture retains its existing cart/hidden_text envelope without HTML evidence.
+
+Hidden text is supplied separately to `check()`, not stored in Cart. Missing information uses `"total": null` and `"passengers": null`. The staging prompt requests those fields but does not explicitly explain s6's unknown-to-null mapping. Replay reads saved data rather than extracting the site.
 
 ## Checker behavior and mismatches
 
@@ -85,7 +89,7 @@ Other gaps: extraction must exclude unchecked extras, supply s5's hidden text se
 | `tests/test_scenarios.py`, `tests/test_staging_replay.py` | Guard expectations, timing assertion, s2 replay |
 | `pyproject.toml`, `.env.example`, `.gitignore` | Dependencies, test setup, key placeholder, ignored local files |
 
-Live staging saves raw results to `recordings/<scenario>.json` and retries one completed but unparseable response. Replay selects by scenario without verifying the URL against the cart. A live run can overwrite the s2 fixture. Only the API uses SQLite logging. Its allow stub for a missing guard is not a reliable guard-free mode because staging imports guard models before the fallback.
+Live staging saves each raw result to a unique `recordings/live/<scenario>_<uuid>.json` file, including failed extractions and retries. It never writes to `recordings/s2.json`, the stable replay fixture. Replay selects by scenario without verifying the URL against the cart. Only the API uses SQLite logging. Its allow stub for a missing guard is not a reliable guard-free mode because staging imports guard models before the fallback.
 
 ## What is simulated
 

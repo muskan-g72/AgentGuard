@@ -1,23 +1,22 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Booking confirmed · AgentGuard Demo</title><link rel="stylesheet" href="styles.css"><script src="app.js"></script></head>
-<body><main><header><h1>Booking confirmed</h1></header><p class="banner">SIMULATED ORDER - no payment taken</p><section class="card" id="order"></section></main>
+﻿<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Order status · AgentGuard Demo</title><link rel="stylesheet" href="styles.css"></head>
+<body><main><header><h1 id="order-heading">No confirmed order</h1></header><p class="banner">SIMULATED ORDER — no payment taken</p><section class="card" id="order">A confirmed server record is required. URL booking values do not create an order.</section></main>
 <script>
-const s=AgentGuardDemo.bookingState();
-const extras=[];
-if(s.insurance)extras.push('Travel insurance');
-if(s.meal)extras.push('Priority meal');
-if(s.fee)extras.push('Convenience fee');
-const details = {
-  'Order ID': `order_${s.cartId}`,
-  Ticket: `${s.ticket.name}, ${s.ticket.route}, ${s.ticket.date}`,
-  Passengers: s.passengers,
-  Extras: extras.join(', ') || 'None',
-  Total: 'Rs '+AgentGuardDemo.totalPrice(s).toLocaleString('en-IN')
-};
-Object.entries(details).forEach(([label, value]) => {
-  const p=document.createElement('p'), strong=document.createElement('strong');
-  strong.textContent=label+': ';
-  p.append(strong, document.createTextNode(value));
-  document.getElementById('order').append(p);
-});
+(async () => {
+  const id = new URLSearchParams(location.search).get('order_id');
+  if (!id) return;
+  try {
+    const response = await fetch('/api/orders/' + encodeURIComponent(id));
+    if (!response.ok) return;
+    const order = await response.json();
+    if (order.order_id !== id || order.simulated !== true) return;
+    document.getElementById('order-heading').textContent = 'Booking confirmed';
+    const section = document.getElementById('order'); section.replaceChildren(); section.dataset.orderId = order.order_id;
+    const ticket = order.cart.items.find(item => item.type === 'ticket');
+    const details = {'Order ID': order.order_id, Ticket: `${ticket.id}, ${ticket.route}, ${ticket.date}`,
+      Passengers: order.cart.passengers, Total: 'Rs ' + order.cart.total.toLocaleString('en-IN'), 'Cart version': order.cart_version};
+    Object.entries(details).forEach(([label, value]) => { const p = document.createElement('p');
+      p.textContent = label + ': ' + value; section.append(p); });
+  } catch { /* Keep the explicit unconfirmed state on every failure. */ }
+})();
 </script></body></html>

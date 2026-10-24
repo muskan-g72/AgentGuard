@@ -20,4 +20,8 @@ button, .button { display: inline-block; padding: 9px 14px; background: #165d9c;
 .banner { background: #fff1bd; border: 1px solid #e1be38; border-radius: 8px; padding: 12px; font-weight: 700; }
 .hidden-agent-note { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .muted { color: #596673; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+select { font: inherit; padding: 6px; margin: 8px 0; max-width: 100%; }
+#review-form label { margin: 12px 0; }
 @media (max-width: 560px) { .search-grid { grid-template-columns: 1fr; } .row { align-items: flex-start; flex-direction: column; } }

@@ -14,25 +14,21 @@ from .models import Contract
 
 
 DEMO_CONTRACT = Contract(
-    route="Ludhiana-Delhi",
+    route={"from": "Ludhiana", "to": "Delhi"},
     date="2026-10-25",
     quantity=1,
     max_total=1000,
     allow_extras=False,
+    source="fallback",
 )
 
-_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "route": {"type": "string"},
-        "date": {"type": "string"},
-        "quantity": {"type": "integer", "minimum": 1},
-        "max_total": {"type": "number", "minimum": 0},
-        "allow_extras": {"type": "boolean"},
-    },
-    "required": ["route", "date", "quantity", "max_total", "allow_extras"],
-}
+_SCHEMA: dict[str, Any] = Contract.model_json_schema()
+# Strict structured output requires every property, including nullable ones.
+for _definition in [_SCHEMA, *_SCHEMA.get("$defs", {}).values()]:
+    if "properties" in _definition:
+        _definition["required"] = list(_definition["properties"])
+        for _property in _definition["properties"].values():
+            _property.pop("default", None)
 
 
 def _openai_json(text: str, api_key: str) -> dict[str, Any]:
@@ -41,10 +37,11 @@ def _openai_json(text: str, api_key: str) -> dict[str, Any]:
     payload = {
         "model": os.getenv("GUARD_LLM_MODEL", "gpt-4.1-mini"),
         "temperature": 0,
+        "max_output_tokens": 1000,
         "input": [
             {
                 "role": "system",
-                "content": "Extract a booking contract. Return only the requested JSON object.",
+                "content": "Draft a booking contract only; never approve a booking. Return the requested JSON object. Use source parsed. Unspecified requirements are null.",
             },
             {"role": "user", "content": text},
         ],
@@ -65,9 +62,30 @@ def _openai_json(text: str, api_key: str) -> dict[str, Any]:
     )
     with urlopen(request, timeout=10) as response:  # nosec B310: fixed HTTPS API endpoint
         body = json.loads(response.read().decode("utf-8"))
-    output_text = body.get("output_text")
-    if not isinstance(output_text, str):
-        raise ValueError("LLM response did not contain output_text")
+    if not isinstance(body, dict) or body.get("status") != "completed":
+        raise ValueError("LLM response was incomplete or unsuccessful")
+    # Raw REST responses carry text in output[].content[]. The SDK convenience
+    # property output_text is not a guaranteed top-level wire field.
+    pieces = []
+    output = body.get("output", [])
+    if not isinstance(output, list):
+        raise ValueError("LLM response output was not an array")
+    for message in output:
+        if not isinstance(message, dict) or message.get("type") != "message":
+            continue
+        content = message.get("content", [])
+        if not isinstance(content, list):
+            raise ValueError("LLM message content was not an array")
+        for part in content:
+            if not isinstance(part, dict):
+                raise ValueError("LLM message content was invalid")
+            if part.get("type") == "refusal":
+                raise ValueError("LLM declined to draft the contract")
+            if part.get("type") == "output_text" and isinstance(part.get("text"), str):
+                pieces.append(part["text"])
+    output_text = "".join(pieces)
+    if not output_text:
+        raise ValueError("LLM response did not contain output text")
     parsed = json.loads(output_text)
     if not isinstance(parsed, dict):
         raise ValueError("LLM response was not a JSON object")
@@ -84,8 +102,9 @@ def parse_contract(text: str) -> Contract:
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return DEMO_CONTRACT
+        return DEMO_CONTRACT.model_copy(deep=True)
     try:
-        return Contract.model_validate(_openai_json(text, api_key))
+        parsed = Contract.model_validate(_openai_json(text, api_key))
+        return parsed.model_copy(update={"source": "parsed"})
     except (OSError, URLError, ValueError, ValidationError, json.JSONDecodeError):
-        return DEMO_CONTRACT
+        return DEMO_CONTRACT.model_copy(deep=True)

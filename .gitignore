@@ -3,3 +3,7 @@
 __pycache__/
 *.py[cod]
 data/
+recordings/live/
+test-results/
+.vercel/
+deploy/generated/
