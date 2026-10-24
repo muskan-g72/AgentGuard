@@ -80,6 +80,29 @@ def static(path: str):
     raise HTTPException(404, "Page not found")
 
 
+@app.get("/data/food.json")
+def food_catalog():
+    # Serve only the public fixture, never the rest of the data directory.
+    return FileResponse(ROOT / "data" / "food.json")
+
+
+def food_assets(directory: str, allowed: set[str]):
+    def serve(asset: str = ""):
+        if not asset:
+            asset = "index.html"
+        if asset not in allowed:
+            raise HTTPException(404, "Page not found")
+        return FileResponse(ROOT / directory / asset)
+    return serve
+
+
+for food_platform in ("foodhub", "quickbite", "dinedash"):
+    app.add_api_route("/" + food_platform + "/{asset:path}", food_assets(food_platform,
+                      {"index.html", "dish.html", "checkout.html", "confirmation.html"}), methods=["GET"])
+app.add_api_route("/food-demo/{asset:path}", food_assets("food-demo",
+                  {"index.html", "site.mjs", "logic.mjs", "styles.css", "plate.svg"}), methods=["GET"])
+
+
 # Preserve origin/main's server-owned carts and approval-protected checkout.
 from app.main import app as booking_app
 

@@ -5,7 +5,8 @@ __pycache__/
 *.pyc
 guard.egg-info/
 .pytest_cache/
-data/
+data/*
+!data/food.json
 recordings/live/
 test-results/
 .vercel/

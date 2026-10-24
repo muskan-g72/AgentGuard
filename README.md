@@ -4,6 +4,9 @@
 
 Public deployment preparation and exact commands: [docs/public-demo-readiness.md](docs/public-demo-readiness.md). The public site still serves the legacy version until an explicitly authorized deployment occurs.
 
+Fictional food fixtures and read-only comparison: [food-demo/README.md](food-demo/README.md).
+The catalog is explicitly synthetic; the shared booking schema and commit gate are unchanged.
+
 ## Problem
 
 A web agent can stage a booking that differs from the user's instructions. AgentGuard provides a small train-booking site and a separate Python checker for inspecting that cart before a simulated order. The demo request is: "Book one Ludhiana-to-Delhi ticket for 25 October 2026, under Rs 1,000, without extras." The shared contract treats Rs 1,000 as an inclusive maximum, so s1 allows exactly Rs 1,000.
