@@ -1,106 +1,55 @@
 # AgentGuard
 
-AgentGuard is a simulated-order safety layer for agent-assisted shopping. It
-contains the original train demo and a food comparison workflow. Monetary values
-at authorization boundaries are whole integer rupees.
+AgentGuard is a simulated booking and food-order guard. It stages an action, checks the staged data against a user contract, and only starts a simulated commit after an allow decision. It does not collect payment or personal data.
 
-## Food workflow
+## What exists
 
-The food API accepts a `FoodContract`, compares options from FoodHub, QuickBite,
-and DineDash, ranks them deterministically, stages the winner, checks the staged
-cart, performs one bounded fix when the checker supplies removal IDs, re-checks,
-and commits only a simulated food order result after an allow decision.
+- Train booking pages use URL state for six train scenarios.
+- The train checker in `guard/checker.py` is deterministic and has no network or LLM access.
+- The FastAPI task store records task events, cart evidence, decisions, approvals, and simulated orders in SQLite.
+- Food comparison uses three simulated paths on `demo-booking-tau.vercel.app`: FoodHub, QuickBite, and DineDash.
+- Food fixture replay compares seven listed options, ranks them, stages FoodHub Spice Route, checks extras, optionally removes listed extras, re-checks, and commits a simulated order.
 
-Food comparison uses the checked-in replay fixtures by setting `REPLAY=1`. The
-live path is implemented through TinyFish calls, but has not been verified
-against a public platform.
+## Food flow
 
-```text
-compare three platforms (parallel) -> rank -> stage winner without ordering
--> check -> optional one fix -> re-check -> simulated commit
-```
+1. `POST /food/compare` accepts a food contract and platform URLs.
+2. It compares platform options, calculates effective price, records dropped reasons, and stores a recommended option in a task.
+3. `POST /food/run` stages that option without ordering.
+4. `guard/food_checker.py` checks the staged food cart.
+5. A block with listed removable extras runs one food fix and then re-checks.
+6. A normal commit starts only after an allow decision, matching stored cart hash, and allowed task status. The `guard_off` request flag is an explicit demo bypass and is recorded in events.
 
-`POST /food/compare` accepts a contract and platform URLs. `POST /food/run`
-executes the persisted food task through the run loop. The food task and its
-events are stored in the existing SQLite task store. The food commit records
-events and a simulated result; it does not create a payment, collect personal
-data, or write a standard `/api/orders` order snapshot.
+Food contract fields are `diet`, `quantity`, `max_total`, `min_rating`, `max_eta_minutes`, `allow_extras`, and `priority`. Money is integer rupees. Effective price is item price plus delivery, platform, and packaging fees, minus the best eligible coupon. Taste score is a rating/count proxy; it is not ground truth.
 
-### Food contract
-
-```json
-{
-  "diet": "veg",
-  "quantity": 1,
-  "max_total": 300,
-  "min_rating": 4.2,
-  "max_eta_minutes": 45,
-  "allow_extras": false,
-  "priority": "price"
-}
-```
-
-The common v2 names `quantity`, `max_total`, and `allow_extras` retain their
-existing meanings. Food option prices, fees, coupon amounts, staged item prices,
-and totals are strict integer rupees.
-
-The effective price is item price plus delivery, platform, and packaging fees,
-less the best coupon eligible on item price. A percentage coupon is capped by
-its `max_discount` when one is supplied. Tips, donations, and memberships are
-not part of an option's effective price.
-
-For `priority: "taste"`, the ranker uses this displayed-rating proxy:
-
-```text
-(rating * rating_count + 3.8 * 50) / (rating_count + 50)
-```
-
-It is a ranking proxy, not a claim about actual taste or food quality.
-
-### Food cart checks
-
-`guard.food_checker.check_food_cart` is deterministic and has no network or
-LLM dependency. It asks on a missing total or quantity; blocks a non-vegetarian
-dish for a vegetarian contract, wrong quantity, forbidden tip/donation/membership
-extras, over-budget total, unexplained total difference, or an unverifiable or
-ineligible applied coupon. Hidden instruction-like text can tighten an otherwise
-allow decision to `ask`; it cannot loosen a block.
-
-The `guard_off` food-run option remains an explicit before/after demo bypass in
-the code. It is not an authorization path for normal guarded runs.
+Orders are simulated. The live food paths and live TinyFish runs are **Planned** for verification; checked-in food fixtures are clearly labelled fixtures, not live recordings.
 
 ## Run locally
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev,browser]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pytest -q
+```
 
-$env:REPLAY = "1"
+Run the replay food evaluator:
+
+```powershell
+$env:REPLAY="1"
+.\.venv\Scripts\python.exe scripts\eval_food.py
+```
+
+It writes `docs/eval-results.md`. `--live` disables replay and can create TinyFish Agent API runs; use it only after the food paths are deployed and `TINYFISH_API_KEY` is available locally.
+
+Start the API:
+
+```powershell
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-The evaluator runs each food scenario with guard off and on, three times by
-default, and rewrites `docs/eval-results.md` with observed replay metrics:
+## Known limits
 
-```powershell
-.\.venv\Scripts\python.exe scripts/eval_food.py --replay
-.\.venv\Scripts\python.exe scripts/eval_food.py --live --runs 3
-```
-
-`--live` is opt-in and can invoke configured TinyFish runs. It was not run as
-part of the checked-in evaluation.
-
-## Planned
-
-- Food-specific browser UI and a user review/confirmation screen for food contracts.
-- Natural-language food-contract parsing.
-- A persistent standard order snapshot for food commits, matching the train-order API.
-- Production authentication, payment integration, and a verified public live-agent deployment.
-
-## Could not verify from the code
-
-- Live TinyFish comparison, staging, fixing, or simulated commit behavior.
-- That any external platform exposes the fixture fields or honors stop-before-order instructions.
-- Real-world menu availability, fees, coupons, ETAs, ratings, or taste.
-- Any payment, delivery, reservation, or external order creation; the implementation is simulated.
+- Food replay is fixture-backed. It does not prove browser behavior on a deployed food platform.
+- The food workflow has no user-confirmation endpoint between compare and run. **Planned:** explicit food-contract confirmation.
+- The food fix supports one pass only and removes only IDs returned by the food checker.
+- `guard_off` intentionally bypasses food checking and the normal commit gate for the before/after demo. It is not a safe production mode.
+- The train and food cart models are separate. `StagedFoodCart` does not replace the shared train `Cart` schema.

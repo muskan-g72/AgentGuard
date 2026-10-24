@@ -1,93 +1,47 @@
 # Architecture
 
-## Shared guard foundation
+## Shared train flow
 
-`guard/models.py` defines the strict v2 train contract/cart/order messages and
-the common `Decision` type. The original train checker, request checker, task
-store, approval binding, receipt chain, and simulated train order flow remain in
-place. All money at these boundaries is a whole JSON integer.
+`guard/models.py` defines the train Schema v2 messages. Money is integer rupees. `guard/checker.py` checks a train cart without network or LLM calls. `app/store.py` stores tasks and appends hash-chained events. `app/workflow.py` stages, checks, removes returned extras once, re-checks, and can submit a simulated train order through the existing backend flow.
 
-## Food compare and guarded run loop
+`app/main.py` exposes train task, cart, stage, event, receipt, and order routes. Train confirmation validates the stored approval, contract hash, cart hash, and outgoing request before creating one immutable simulated order.
 
-Food-specific messages live in `guard/food_models.py` rather than changing the
-train contract schema:
+## Food flow
 
-| Model | Purpose |
-| --- | --- |
-| `FoodContract` | Vegetarian requirement, quantity, budget, rating/ETA limits, extras policy, and ranking priority. |
-| `FoodOption` | Read-only comparison result from one platform. |
-| `Fees`, `Coupon` | Integer delivery/platform/packaging fees and coupon terms. |
-| `StagedFoodCart` | Checkout evidence: typed items, coupon code/details, quantity, total, ETA, vegetarian evidence, and hidden text. |
+Food models are separate from the train schema:
 
-`guard/food_rank.py` is pure logic. It selects the best eligible coupon, derives
-effective price and taste proxy, drops noncompliant options with recorded
-reasons, and ranks survivors. The three configured demo paths are FoodHub,
-QuickBite, and DineDash under `https://demo-booking-tau.vercel.app/`.
+- `guard/food_models.py`: `FoodContract`, `FoodOption`, coupon, fee, and staged food-cart models.
+- `guard/food_checker.py`: deterministic staged-cart checks.
+- `app/food_compare.py`: platform comparison, coupon eligibility, effective price, taste proxy, ranking, fixture replay, and TinyFish adapter calls.
+- `app/food_workflow.py`: food stage, check, fix, re-check, and commit adapter.
 
-`app/food_compare.py` runs platform comparisons concurrently. In replay mode it
-loads `recordings/food/{foodhub,quickbite,dinedash}.json`. In live mode it starts
-TinyFish runs, polls them, validates structured output, and saves live raw
-responses under ignored `recordings/food/live/` paths. Live behavior is
-unverified.
+The food contract contains:
 
-```text
-FoodContract + three platform URLs
-  -> compare_all (parallel)
-  -> guard.food_rank.rank
-  -> Store.create_food_task (comparison/ranking events)
-  -> app.food_workflow.run_food_task
-       -> stage_winner (stops before order)
-       -> guard.food_checker.check_food_cart
-       -> one fix_staged_cart pass only when removal IDs exist
-       -> re-check
-       -> commit_staged_order only after allow
+```json
+{"diet":"veg","quantity":1,"max_total":300,"min_rating":4.2,"max_eta_minutes":45,"allow_extras":false,"priority":"price"}
 ```
 
-The normal guarded path records `food_stage_started`, `food_staged`,
-`food_decision`, optional fix/recheck events, and simulated commit events in the
-same SQLite task event chain. `app/food_workflow.py` verifies task status,
-stored decision, cart hash, and cart total before its guarded commit call.
+`POST /food/compare` calls comparison and ranking. It creates a food task and writes `food_compare_done` and `food_ranked` events. It returns ranked options, dropped options with reasons, the recommended option, failed platforms, and the task ID.
 
-`guard_off` is implemented as an explicit demo bypass in the food workflow and
-is used by the evaluator for before/after measurement. It is not part of the
-normal guarded path.
+`POST /food/run` reads the stored recommendation. It writes events for staging, decision, optional fix, re-check, and commit. The normal food commit gate requires task status `allowed`, a stored `allow` decision, and a cart hash matching the cart recorded at check time. A confirmed simulated total must equal the staged total.
 
-## Food checker
+`guard_off` is an explicit before/after-demo bypass. It skips the food check and normal food commit gate and writes `food_guard_off_enabled` and `food_guard_off_bypass` events.
 
-`guard/food_checker.py` is deterministic and has no network or LLM calls. In
-order, it asks for missing total/quantity, blocks non-vegetarian food for a veg
-contract, blocks a quantity mismatch, blocks unauthorized tip/donation/membership
-items with their actual IDs, blocks budget and unexplained-total differences,
-blocks an unverifiable/ineligible applied coupon, and asks on hidden
-instruction-like text only after the preceding checks allow. `guard.checker`
-re-exports this function for compatibility.
+## Comparison and ranking
 
-## Simulation boundary
+FoodHub, QuickBite, and DineDash are simulated paths under `https://demo-booking-tau.vercel.app/`. In replay mode, `recordings/food/foodhub.json`, `quickbite.json`, and `dinedash.json` provide labelled fixture data.
 
-The food commit prompt instructs the agent to proceed only when the site itself
-identifies the order as simulated and to avoid payment or personal data. In
-replay it returns a fixture-like simulated order ID. The code does not integrate
-a payment provider. Food commits currently record task events rather than a
-normal immutable `/api/orders` snapshot.
+Effective price is item price plus delivery, platform, and packaging fees, less the largest eligible coupon discount. A coupon is eligible when its minimum order is no greater than item price. Percent discounts are capped by `max_discount` when supplied. Tip, donation, and membership are extras and are not part of effective price.
 
-## Evaluation
+The taste score is `(rating * rating_count + 3.8 * 50) / (rating_count + 50)`. It is only a ranking proxy, not a factual measure of taste.
 
-`scripts/eval_food.py` runs `clean`, `extras`, `qty2`, `hidden`, and `nototal`
-through the existing food run loop, guard off and on, for a configurable number
-of repetitions. It defaults to replay and writes measured observations to
-`docs/eval-results.md`. It defines its rates in that generated document; it does
-not claim external-agent or production performance.
+## Planned work
 
-## Planned
+- Verify live food paths and TinyFish results after deployment.
+- Add explicit food-contract confirmation before `POST /food/run`.
+- Add more than one food-fix attempt if product requirements permit it.
+- Provide a production authorization mode; `guard_off` is demo-only.
 
-- Food browser UI and user-facing food-contract review.
-- Natural-language food contract parsing.
-- Persistent food order snapshots through the standard order API.
-- Verified live TinyFish/public deployment behavior.
-- Payment, delivery, reservation, or external-order integrations.
+## What is simulated
 
-## Could not verify from the code
-
-- That a live platform is reachable or returns complete, accurate option/cart evidence.
-- Stop-before-order and simulated-only behavior of a live TinyFish run.
-- Any real payment, restaurant order, delivery, coupon redemption, ETA, rating, or taste claim.
+Train inventory, food options, carts, fees, coupons, order IDs, and orders are demo data. No real payment, reservation, or personal-data submission is implemented.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .hidden_text import scan_hidden_text
 from .models import Cart, Contract, Decision, Item, Route
+from .food_checker import check_food_cart
 
 
 def _money(amount: int) -> str:

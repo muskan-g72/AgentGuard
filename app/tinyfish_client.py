@@ -18,7 +18,13 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
+# TinyFish docs checked 2026-10-25: POST /v1/automation/run-sse streams events;
+# POST /v1/automation/run-async returns {run_id, error}; GET /v1/runs/{run_id}
+# returns a run with status and result. All use X-API-Key and accept url, goal,
+# output_schema and agent_config.max_duration_seconds.
 _API_URL = 'https://agent.tinyfish.ai/v1/automation/run-sse'
+_ASYNC_API_URL = 'https://agent.tinyfish.ai/v1/automation/run-async'
+_RUNS_URL = 'https://agent.tinyfish.ai/v1/runs/'
 _TIMEOUT_SECONDS = 120
 DEMO_URL = 'https://demo-booking-tau.vercel.app'
 
@@ -37,9 +43,13 @@ def _load_key() -> str:
 
 def validate_demo_url(url: str) -> str:
     parsed = urlparse(url)
+    food_prefixes = tuple(prefix.strip() for prefix in os.getenv(
+        'TINYFISH_FOOD_PATH_PREFIXES', '/foodhub/,/quickbite/,/dinedash/'
+    ).split(',') if prefix.strip())
+    food_path_allowed = any(parsed.path.startswith(prefix) for prefix in food_prefixes)
     if (parsed.scheme != 'https' or parsed.hostname != 'demo-booking-tau.vercel.app'
             or parsed.username or parsed.password or parsed.port not in (None, 443)
-            or parsed.path not in ('', '/', '/index.html', '/checkout.html')):
+            or (parsed.path not in ('', '/', '/index.html', '/checkout.html') and not food_path_allowed)):
         raise TinyFishError('Live execution is restricted to the configured simulated demo HTTPS origin and booking pages.')
     return url
 
@@ -80,6 +90,62 @@ def _cancel(run_id, key):
             pass
     except (OSError, HTTPError):
         pass
+
+
+def cancel_agent_run(run_id: str) -> None:
+    """Cancel an async run when a caller-controlled deadline expires."""
+
+    _cancel(run_id, _load_key())
+
+
+def _json_response(request: Request, *, timeout_seconds: int) -> dict:
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            value = json.loads(response.read().decode('utf-8'))
+    except HTTPError as error:
+        raise TinyFishError(f'TinyFish returned HTTP {error.code}; no approval or order was created.') from error
+    except (URLError, OSError, UnicodeError, ValueError) as error:
+        raise TinyFishError('TinyFish connection, timeout or response parsing failed; no approval or order was created.') from error
+    if not isinstance(value, dict):
+        raise TinyFishError('TinyFish returned an invalid JSON response.')
+    return value
+
+
+def start_agent_async(url: str, goal: str, *, output_schema: dict, timeout_seconds: int) -> dict:
+    """Queue a read-only/extraction run using documented /run-async fields."""
+
+    validate_demo_url(url)
+    payload = {
+        'url': url,
+        'goal': goal,
+        'output_schema': output_schema,
+        'agent_config': {'max_duration_seconds': timeout_seconds},
+    }
+    request = Request(
+        _ASYNC_API_URL,
+        data=json.dumps(payload).encode(),
+        method='POST',
+        headers={'X-API-Key': _load_key(), 'Content-Type': 'application/json', 'Accept': 'application/json'},
+    )
+    result = _json_response(request, timeout_seconds=20)
+    if result.get('error') is not None:
+        raise TinyFishError('TinyFish could not queue the automation run.')
+    if not isinstance(result.get('run_id'), str) or not result['run_id']:
+        raise TinyFishError('TinyFish queue response is missing run_id.')
+    return result
+
+
+def get_agent_run(run_id: str) -> dict:
+    """Poll one documented TinyFish run resource."""
+
+    if not isinstance(run_id, str) or not re.fullmatch(r'[\w-]{1,100}', run_id):
+        raise TinyFishError('TinyFish run_id is invalid.')
+    request = Request(
+        _RUNS_URL + run_id,
+        method='GET',
+        headers={'X-API-Key': _load_key(), 'Accept': 'application/json'},
+    )
+    return _json_response(request, timeout_seconds=20)
 
 
 def run_agent(url: str, goal: str, *, progress=None, timeout_seconds=_TIMEOUT_SECONDS) -> dict:

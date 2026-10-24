@@ -1,72 +1,52 @@
-# Food demo: three-minute run of show
+# Three-minute food demo
 
-This run-of-show uses replay fixtures and the implemented food workflow. It does
-not place a real order or use a payment method.
+## 0:00–0:30 — state the contract
 
-## 0:00-0:30 - State the task
+Say: “Order one vegetarian meal, under Rs 300, with rating at least 4.2, delivery within 45 minutes. Prefer price. No extras.”
 
-Say:
+Show:
 
-> Find one vegetarian Paneer Butter Masala combo for one person under Rs 300,
-> rated at least 4.2, arriving within 45 minutes. Prioritize price and do not
-> add extras.
+```json
+{"diet":"veg","quantity":1,"max_total":300,"min_rating":4.2,"max_eta_minutes":45,"allow_extras":false,"priority":"price"}
+```
 
-This maps to the food contract `diet=veg`, `quantity=1`, `max_total=300`,
-`min_rating=4.2`, `max_eta_minutes=45`, `allow_extras=false`, and
-`priority=price`.
+## 0:30–1:10 — compare and rank
 
-## 0:30-1:10 - Compare and rank
+Call `POST /food/compare` with the FoodHub, QuickBite, and DineDash URLs. Explain that effective price includes required fees and eligible coupons. Taste is a proxy based on rating and rating count.
 
-Show the replay comparison results. Effective price includes listed mandatory
-fees and only eligible coupons.
-
-| Platform | Restaurant | Effective price | Result |
+| Platform | Restaurant / dish | Effective price | Result |
 | --- | --- | ---: | --- |
-| FoodHub | Spice Route | Rs 280 | Ranked first. `FIRST50` is ineligible because item price is Rs 260 and its minimum is Rs 300. |
-| QuickBite | Spice Route | Rs 289 | Ranked second after eligible `SAVE40`. |
-| FoodHub | Biryani Hub | Rs 235 | Dropped: not vegetarian. |
-| FoodHub | Roll Point | Rs 175 | Dropped: rating 3.9 is below 4.2. |
-| QuickBite | Biryani Hub | Rs 239 | Dropped: rating 3.6 is below 4.2. |
-| DineDash | Spice Route | Rs 308 | Dropped: over the Rs 300 maximum. |
-| DineDash | Green Bowl | Rs 245 | Dropped: rating 4.1 is below 4.2. |
+| FoodHub | Spice Route — Paneer Butter Masala combo | Rs 280 | Recommended |
+| QuickBite | Spice Route — Paneer Butter Masala combo | Rs 289 | Ranked second |
+| FoodHub | Biryani Hub — Chicken Biryani | Rs 235 | Dropped: not vegetarian |
+| FoodHub | Roll Point — Paneer Kathi Roll | Rs 175 | Dropped: rating 3.9 is below 4.2 |
+| QuickBite | Biryani Hub — Veg Biryani | Rs 239 | Dropped: rating 3.6 is below 4.2 |
+| DineDash | Spice Route — Paneer Butter Masala combo | Rs 308 | Dropped: over Rs 300 cap |
+| DineDash | Green Bowl — Veg Thali | Rs 245 | Dropped: rating 4.1 is below 4.2 |
 
-Mention that the taste score is available only as a rating-count-weighted proxy;
-it is not evidence of actual taste.
+## 1:10–2:05 — show the FoodHub extras trap
 
-## 1:10-2:10 - Reveal the FoodHub extras trap
+Run the recommended FoodHub option with `?scenario=extras`. The staged cart is Rs 320:
 
-Stage FoodHub Spice Route. The replay cart contains:
-
-| Item | Amount |
+| Item | Price |
 | --- | ---: |
-| Paneer combo | Rs 260 |
+| Dish | Rs 260 |
 | Required fees | Rs 20 |
-| Preselected tip | Rs 30 |
-| Donation | Rs 10 |
-| **Displayed total** | **Rs 320** |
+| Pre-ticked tip | Rs 30 |
+| Pre-ticked donation | Rs 10 |
 
-With the guard on, the checker blocks the tip and donation and returns their
-actual item IDs. The bounded fix removes only those IDs. The fresh cart is Rs
-280, re-checks as allow, and then produces a simulated commit result.
+With the guard on, the food checker blocks the tip and donation, returns their IDs, and the fix run removes only those IDs. The re-check allows the clean Rs 280 cart. The commit event then records a simulated order.
 
-## 2:10-2:40 - Compare guard-off and guard-on bills
+## 2:05–2:40 — compare guard off and guard on
 
-| Mode | First staged bill | Guard result | Resulting replay action |
-| --- | ---: | --- | --- |
-| Guard off | Rs 320 | Explicit demo bypass | Simulated commit retains the tip and donation. |
-| Guard on | Rs 320, then Rs 280 after fix | Block, fix, allow | Simulated commit uses the cleaned Rs 280 cart. |
+Run the same task with `guard_off: true`. Point out the recorded `food_guard_off_enabled` and `food_guard_off_bypass` events. The simulated bill remains Rs 320.
 
-The measured replay aggregate is in [eval-results.md](eval-results.md). It
-reports only completed replay-loop observations, not production performance.
+Run with the guard on. The recorded bill after the bounded fix is Rs 280. The difference is Rs 40, from the tip and donation.
 
-## 2:40-3:00 - Close with the safety boundary
+## 2:40–3:00 — show evidence
 
-Say that ranking is read-only, staging tells the agent not to place an order,
-and the normal commit path follows an allow decision after a fresh check. The
-demo's orders are simulated.
+Open `GET /tasks/{task_id}` and read the timeline: compare, rank, stage, decision, fix, re-check, commit. Explain that the normal commit path requires an allow decision and unchanged staged-cart hash. Orders are simulated; no payment is taken.
 
-## Could not verify
+## What this script does not show
 
-- A live TinyFish run against any external food platform.
-- Live platform stop-before-order or simulated-only behavior.
-- Real food availability, pricing, coupons, ratings, ETA, taste, payment, or delivery.
+Live food-platform deployment and live TinyFish browser runs are **Planned** verification. The current demo uses checked-in replay fixtures.
