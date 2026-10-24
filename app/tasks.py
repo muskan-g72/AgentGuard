@@ -14,7 +14,7 @@ from uuid import uuid4
 DATABASE_PATH = Path(__file__).resolve().parents[1] / "data" / "events.db"
 ALLOWED_TRANSITIONS = {
     "awaiting_answers": {"awaiting_confirmation"},
-    "awaiting_confirmation": {"staging"},
+    "awaiting_confirmation": {"staging", "failed"},
     "staging": {"checking", "failed"},
     "checking": {"allowed", "blocked", "failed"},
     "blocked": {"fixing", "failed"},

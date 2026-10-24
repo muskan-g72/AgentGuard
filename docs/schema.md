@@ -56,6 +56,7 @@ Allowed transitions:
 
 - `awaiting_answers` → `awaiting_confirmation`
 - `awaiting_confirmation` → `staging`
+- Rejected origin or other pre-run refusal: `awaiting_confirmation` → `failed`.
 - `staging` → `checking` or `failed`
 - `checking` → `allowed`, `blocked`, or `failed`
 - `blocked` → `fixing` or `failed`
