@@ -2,5 +2,22 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Booking confirmed · AgentGuard Demo</title><link rel="stylesheet" href="styles.css"><script src="app.js"></script></head>
 <body><main><header><h1>Booking confirmed</h1></header><p class="banner">SIMULATED ORDER - no payment taken</p><section class="card" id="order"></section></main>
 <script>
-const s=AgentGuardDemo.bookingState(); const extras=[]; if(s.insurance)extras.push('Travel insurance'); if(s.meal)extras.push('Priority meal'); if(s.fee)extras.push('Convenience fee'); const total=s.ticket.price+(s.insurance?250:0)+(s.meal?100:0)+(s.fee?180:0); document.getElementById('order').innerHTML=`<p><strong>Order ID:</strong> order_${s.cartId}</p><p><strong>Ticket:</strong> ${s.ticket.name}, ${s.ticket.route}, ${s.ticket.date}</p><p><strong>Extras:</strong> ${extras.join(', ')||'None'}</p><p><strong>Total:</strong> Rs ${total.toLocaleString('en-IN')}</p>`;
+const s=AgentGuardDemo.bookingState();
+const extras=[];
+if(s.insurance)extras.push('Travel insurance');
+if(s.meal)extras.push('Priority meal');
+if(s.fee)extras.push('Convenience fee');
+const details = {
+  'Order ID': `order_${s.cartId}`,
+  Ticket: `${s.ticket.name}, ${s.ticket.route}, ${s.ticket.date}`,
+  Passengers: s.passengers,
+  Extras: extras.join(', ') || 'None',
+  Total: 'Rs '+AgentGuardDemo.totalPrice(s).toLocaleString('en-IN')
+};
+Object.entries(details).forEach(([label, value]) => {
+  const p=document.createElement('p'), strong=document.createElement('strong');
+  strong.textContent=label+': ';
+  p.append(strong, document.createTextNode(value));
+  document.getElementById('order').append(p);
+});
 </script></body></html>

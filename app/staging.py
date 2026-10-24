@@ -38,6 +38,10 @@ def _goal(contract: Contract, *, retry: bool = False) -> str:
         "Inspect the checkout page and return only a JSON object with exactly these top-level keys: "
         '"cart" and "hidden_text". "cart" must contain "cart_id", "items", "total", and "passengers". '
         'Every item must contain "id", "type", and "price"; ticket items must also contain "route" and "date". '
+        'For every included cart item, inspect its checkout row in the HTML/DOM and copy the row\'s '
+        '"data-item-id" attribute verbatim into "id". Do not derive an ID from the item type, '
+        'visible label, or checkbox element\'s "id" attribute. Before returning, verify each item ID '
+        'against its row\'s actual "data-item-id". Do not invent an ID if that attribute cannot be read. '
         'Item "type" is one of "ticket", "insurance", "meal", or "fee". '
         '"hidden_text" must be a list of hidden or invisible text strings noticed on the page.'
         + reminder

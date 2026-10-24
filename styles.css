@@ -6,6 +6,8 @@ header { margin-bottom: 24px; }
 h1 { margin-bottom: 6px; }
 .card { background: #fff; border: 1px solid #d9e0e7; border-radius: 10px; padding: 18px; margin: 12px 0; }
 .search-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+#search button { margin-top: 18px; }
+:focus-visible { outline: 3px solid #d99b00; outline-offset: 3px; }
 label { display: block; font-weight: 600; }
 input, button { font: inherit; margin-top: 6px; }
 input[type="text"], input[type="date"], input[type="number"] { width: 100%; padding: 9px; border: 1px solid #aeb9c5; border-radius: 5px; }
