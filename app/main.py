@@ -163,7 +163,8 @@ def run(task_id: str, background_tasks: BackgroundTasks) -> dict:
     allowed=os.getenv("ALLOWED_CART_ORIGINS","demo-booking-tau.vercel.app").split(",")
     if host not in allowed and not (os.getenv("REPLAY")=="1" and host in {"localhost","127.0.0.1"}):
         audit(task_id,"run_failed",{"reason":"cart origin rejected","host":host}); transition(task_id,"failed"); raise HTTPException(400,"Cart origin rejected.")
-    background_tasks.add_task(run_task,task_id,BROWSER_FACTORY())
+    cart_url = f"{base.rstrip('/')}/checkout.html?scenario={task['scenario']}"
+    background_tasks.add_task(run_task,task_id,BROWSER_FACTORY(),cart_url)
     return {"status":"accepted"}
 
 

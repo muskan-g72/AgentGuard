@@ -25,10 +25,10 @@ def test_fix_error(monkeypatch):
  t=task(); b=FakeBrowser(carts=[SCENARIOS['s2'][0]]); monkeypatch.setattr(b,'fix_cart',lambda *a:(_ for _ in ()).throw(BrowserError('x'))); run_task(t,b); assert get_task(t)['status']=='failed' and b.commit_calls==0 and 'run_failed' in types(t)
 def test_cart_swap_refuses_commit():
  from tests.test_commit_gate import prepared
- t=prepared(); b=FakeBrowser(orders=[{'order_id':'o','total':1000}]); update_task(t,cart_json='{}'); assert not commit_task(t,b); assert b.commit_calls==0 and get_task(t)['status']!='done'; assert 'hash' in task_events(t)[-1]['payload']['reason']
+ t=prepared(); b=FakeBrowser(orders=[{'order_id':'o','total':1000}]); update_task(t,cart_json='{}'); assert not commit_task(t,b,'cart'); assert b.commit_calls==0 and get_task(t)['status']!='done'; assert 'hash' in task_events(t)[-1]['payload']['reason']
 def test_decision_swap_refuses_commit():
  from tests.test_commit_gate import prepared
- t=prepared(); b=FakeBrowser(); update_task(t,decision_json='{"result":"block"}'); assert not commit_task(t,b); assert b.commit_calls==0 and 'decision.result' in task_events(t)[-1]['payload']['reason']
+ t=prepared(); b=FakeBrowser(); update_task(t,decision_json='{"result":"block"}'); assert not commit_task(t,b,'cart'); assert b.commit_calls==0 and 'decision.result' in task_events(t)[-1]['payload']['reason']
 def test_realistic_cart_swap_refuses_commit():
  from tests.test_commit_gate import prepared
- t=prepared(); b=FakeBrowser(); cart=SCENARIOS['s1'][0].model_dump(mode='json'); cart['items'][0]['price']=1350; cart['items'].append({'id':'x1','type':'insurance','price':250,'route':None,'date':None}); cart['total']=1600; update_task(t,cart_json=__import__('json').dumps(cart)); assert not commit_task(t,b); assert b.commit_calls==0 and get_task(t)['status']!='done' and 'hash' in task_events(t)[-1]['payload']['reason']
+ t=prepared(); b=FakeBrowser(); cart=SCENARIOS['s1'][0].model_dump(mode='json'); cart['items'][0]['price']=1350; cart['items'].append({'id':'x1','type':'insurance','price':250,'route':None,'date':None}); cart['total']=1600; update_task(t,cart_json=__import__('json').dumps(cart)); assert not commit_task(t,b,'cart'); assert b.commit_calls==0 and get_task(t)['status']!='done' and 'hash' in task_events(t)[-1]['payload']['reason']
