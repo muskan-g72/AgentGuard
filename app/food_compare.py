@@ -141,6 +141,27 @@ def _staging_goal(option: FoodOption, contract: FoodContract, *, retry: bool) ->
     )
 
 
+def _fix_goal(option: FoodOption, remove_item_ids: list[str], *, retry: bool) -> str:
+    reminder = " Return only the JSON object, with no Markdown or explanation." if retry else ""
+    return (
+        f"Open the cart for {option.restaurant}: {option.dish}. Untick or remove only these item IDs: {remove_item_ids}. "
+        "Keep the dish, required fees, quantity, and any eligible coupon unchanged. Go to checkout and return the current cart JSON. "
+        "Do NOT click Place order, Pay, Confirm, Submit, or any equivalent final-action button. "
+        "Return only JSON with cart_id, items (id, type dish|tip|donation|membership|fee, integer price), coupon_applied, "
+        "quantity, integer total, eta_minutes, veg, and hidden_text."
+        + reminder
+    )
+
+
+def _commit_goal(option: FoodOption, cart: StagedFoodCart) -> str:
+    return (
+        f"Open the checkout for {option.restaurant}: {option.dish}. Verify the visible cart total is Rs {cart.total}. "
+        "This is a simulated demo only. Do not enter payment, card, address, phone, email, or personal data. "
+        "Click Place order only when the page explicitly identifies the order as simulated and no real payment is taken. "
+        "Return only JSON with order_id and integer total."
+    )
+
+
 def _result_object(raw: object) -> dict:
     if not isinstance(raw, dict):
         raise FoodCompareError("TinyFish result is not a JSON object.")
@@ -296,3 +317,51 @@ def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds:
                 raise FoodCompareError(f"Food staging failed after one JSON retry: {first_error} | {error}") from error
             first_error = error
     raise AssertionError("unreachable")
+
+
+def fix_staged_cart(option: FoodOption, cart: StagedFoodCart, remove_item_ids: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> StagedFoodCart:
+    """Remove only checker-identified food extras and return freshly staged evidence."""
+
+    platform = _platform_name(option.url)
+    if os.getenv("REPLAY") == "1":
+        unknown = set(remove_item_ids) - {item.id for item in cart.items}
+        if unknown:
+            raise FoodCompareError("Food fix referenced an item that is not in the staged cart.")
+        items = [item for item in cart.items if item.id not in set(remove_item_ids)]
+        return cart.model_copy(update={"items": items, "total": sum(item.price for item in items)})
+    first_error: Exception | None = None
+    for retry in (False, True):
+        try:
+            queued = start_agent_async(option.url, _fix_goal(option, remove_item_ids, retry=retry), output_schema=_staged_cart_schema(), timeout_seconds=timeout_seconds)
+            run_id = queued.get("run_id")
+            if not isinstance(run_id, str) or not run_id:
+                raise FoodCompareError("TinyFish did not return a run_id for food fix.")
+            raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
+            _save_live(platform, raw, "fix")
+            return _parse_staged_cart(raw)
+        except (FoodCompareError, TinyFishError, ValidationError, json.JSONDecodeError) as error:
+            if retry:
+                raise FoodCompareError(f"Food fix failed after one JSON retry: {first_error} | {error}") from error
+            first_error = error
+    raise AssertionError("unreachable")
+
+
+def commit_staged_order(option: FoodOption, cart: StagedFoodCart, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> dict:
+    """Commit only the already-allowed simulated food order."""
+
+    platform = _platform_name(option.url)
+    if os.getenv("REPLAY") == "1":
+        return {"order_id": f"food_replay_{platform}_{cart.cart_id}", "total": cart.total}
+    queued = start_agent_async(option.url, _commit_goal(option, cart), output_schema={
+        "type": "object", "properties": {"order_id": {"type": "string"}, "total": {"type": "integer", "minimum": 0}},
+        "required": ["order_id", "total"],
+    }, timeout_seconds=timeout_seconds)
+    run_id = queued.get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        raise FoodCompareError("TinyFish did not return a run_id for food commit.")
+    raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
+    _save_live(platform, raw, "commit")
+    result = _result_object(raw)
+    if not isinstance(result.get("order_id"), str) or not result["order_id"] or type(result.get("total")) is not int:
+        raise FoodCompareError("TinyFish returned an invalid simulated food order result.")
+    return {"order_id": result["order_id"], "total": result["total"]}

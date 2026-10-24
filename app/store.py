@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from guard.intent_gap import apply_answers, find_gaps
 from guard.models import Cart, Contract, Decision, OrderRequest
+from guard.food_models import FoodContract, FoodOption
 
 from .catalog import BookingState, make_cart
 
@@ -164,6 +165,38 @@ class Store:
                 event_type="task_created",
                 payload={"scenario": scenario},
             )
+        return task
+
+    def create_food_task(self, contract: FoodContract, recommended: FoodOption | None, *,
+                         ranked: list[FoodOption], dropped: list[dict], guard_off: bool = False):
+        """Persist food comparison evidence in the same append-only task event chain."""
+        task = {
+            "task_id": str(uuid4()), "kind": "food", "sentence": "Food comparison",
+            "scenario": "food", "draft_contract": contract.model_dump(mode="json"),
+            "contract": contract.model_dump(mode="json"), "questions": [], "answers": {},
+            "reviewed": True, "events": [], "status": "awaiting_confirmation",
+            "recommended": recommended.model_dump(mode="json") if recommended else None,
+            "guard_off": guard_off,
+        }
+        with self.connection() as db:
+            self._event(
+                db, task, "awaiting_confirmation", "Food platform comparison completed.",
+                event_type="food_compare_done", payload={"ranked_count": len(ranked), "dropped_count": len(dropped)},
+            )
+            self._event(
+                db, task, "awaiting_confirmation", "Food options ranked against the authorized contract.",
+                event_type="food_ranked", payload={
+                    "ranked": [option.model_dump(mode="json") for option in ranked],
+                    "dropped": dropped,
+                    "recommended": task["recommended"],
+                },
+            )
+        return task
+
+    def food_task(self, task_id):
+        task = self.task(task_id)
+        if task.get("kind") != "food":
+            raise WorkflowError("Task is not a food task.", 422)
         return task
 
     def task(self, task_id):

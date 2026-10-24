@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from guard.contract_parser import DEMO_CONTRACT, parse_contract
+from guard.food_models import FoodContract
 from guard.models import Cart, Contract, Message, OrderRequest
 
 from .catalog import BookingState
@@ -74,6 +75,16 @@ class RunRequest(Message):
     confirm: bool = False
 
 
+class FoodCompareRequest(Message):
+    contract: FoodContract
+    platform_urls: list[str]
+
+
+class FoodRunRequest(Message):
+    task_id: str
+    guard_off: bool = False
+
+
 def create_app(database: str | Path | None = None) -> FastAPI:
     settings = Settings.load(ROOT, database)
     version = release()
@@ -82,6 +93,8 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     api.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(settings.allowed_hosts))
     api.state.store = Store(settings.database)
     api.state.settings = settings
+    from .food_workflow import TinyFishFoodBrowser
+    api.state.food_browser_factory = TinyFishFoodBrowser
 
     @api.middleware("http")
     async def no_stale_authority(request, call_next):
@@ -248,6 +261,44 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         Store._reviewed(store().task(task_id))
         from .workflow import run_task
         return run_task(store(), task_id, body.mode, body.cart_url, body.confirm)
+
+    @api.post("/food/compare")
+    def food_compare(body: FoodCompareRequest):
+        from .food_compare import compare_all, rank_options
+
+        comparison = compare_all(body.platform_urls)
+        ranking = rank_options(comparison.options, body.contract)
+        dropped = [
+            {"option": entry.option.model_dump(mode="json"), "reasons": entry.reasons}
+            for entry in ranking.rejected
+        ]
+        task = store().create_food_task(
+            body.contract,
+            ranking.ranked[0] if ranking.ranked else None,
+            ranked=ranking.ranked,
+            dropped=dropped,
+        )
+        return {
+            "task_id": task["task_id"],
+            "ranked": [option.model_dump(mode="json") for option in ranking.ranked],
+            "dropped": dropped,
+            "recommended": ranking.ranked[0].model_dump(mode="json") if ranking.ranked else None,
+            "failed_platforms": comparison.failures,
+        }
+
+    @api.post("/food/run")
+    def food_run(body: FoodRunRequest):
+        from .food_workflow import run_food_task
+
+        task = store().food_task(body.task_id)
+        if task.get("recommended") is None:
+            raise WorkflowError("No food option survived comparison; staging cannot start.", 409)
+        if body.guard_off:
+            store().event(
+                body.task_id, task["status"], "Guard-off mode enabled for the before/after food demo.",
+                event_type="food_guard_off_enabled", guard_off=True,
+            )
+        return run_food_task(store(), body.task_id, api.state.food_browser_factory())
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
 
