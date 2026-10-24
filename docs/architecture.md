@@ -1,107 +1,93 @@
-﻿# Architecture
+# Architecture
 
-> **Historical prototype snapshot.** The current implementation is documented in [current-status.md](current-status.md). It replaces the unconditional confirmation and missing approval/order flow described below. Existing notes are preserved for comparison.
+## Shared guard foundation
 
-## Intended loop and current implementation
+`guard/models.py` defines the strict v2 train contract/cart/order messages and
+the common `Decision` type. The original train checker, request checker, task
+store, approval binding, receipt chain, and simulated train order flow remain in
+place. All money at these boundaries is a whole JSON integer.
 
-1. **Confirm instructions — Planned.** The user would review a contract before an agent starts. `guard/contract_parser.py` can attempt external LLM parsing with a fixed demo fallback. No UI confirms its output. The API and CLI use `DEMO_CONTRACT` directly.
-2. **Run 1: stage — partly implemented.** The static pages let a user search, select a ticket, and open checkout. `app/staging.py` builds a TinyFish goal to stage a cart and stop before Confirm, Pay, Place order, Submit, or equivalent actions. `app/tinyfish_client.py` contains the live request code. Live execution and obedience to the goal are unverified. `REPLAY=1` reads the s2 fixture without a browser or network call.
-3. **Check — implemented for supplied messages.** `guard/checker.py` compares a Contract and Cart, with hidden text supplied separately. `POST /stage` stages once, checks against the fixed demo contract, and returns cart and decision. Browser pages never call it.
-4. **Run 2: fix and recheck — Planned.** The guard returns removal IDs for unauthorized extras. No orchestrator uses them to remove extras or restage. A person can uncheck insurance and meal manually. The repaired-s2 Python fixture is separately constructed; it does not prove an agent repair run.
-5. **Run 3: commit after allow — Planned.** No backend commit run or decision-to-cart binding exists. The existing `#confirm` button always navigates to `confirmation.html`. It does not call or enforce the Python checker and does not stop on block or ask. The order is simulated.
+## Food compare and guarded run loop
 
-## Browser state and pricing
+Food-specific messages live in `guard/food_models.py` rather than changing the
+train contract schema:
 
-`app.js` holds T1 (25 October, Rs 1,000), T2 (25 October, Rs 1,400), and T3 (26 October, Rs 900), all on Ludhiana-Delhi. `index.html` matches route without case sensitivity and date exactly. Unmatched searches show "No trains found". s4 deliberately includes and promotes T3 for the matching route even if the requested date differs. The ticket's true date remains unchanged and displayed.
+| Model | Purpose |
+| --- | --- |
+| `FoodContract` | Vegetarian requirement, quantity, budget, rating/ETA limits, extras policy, and ranking priority. |
+| `FoodOption` | Read-only comparison result from one platform. |
+| `Fees`, `Coupon` | Integer delivery/platform/packaging fees and coupon terms. |
+| `StagedFoodCart` | Checkout evidence: typed items, coupon code/details, quantity, total, ETA, vegetarian evidence, and hidden text. |
 
-Submitted searches store `from`, `to`, `date`, and `passengers` in the index URL. Links carry those values, `scenario`, `cart_id`, `ticket`, `insurance`, `meal`, and `fee` through checkout and confirmation. `date` is the requested date; the selected ticket date comes from inventory. This preserves the s4 mismatch. Original direct scenario URLs default to one passenger.
+`guard/food_rank.py` is pure logic. It selects the best eligible coupon, derives
+effective price and taste proxy, drops noncompliant options with recorded
+reasons, and ranks survivors. The three configured demo paths are FoodHub,
+QuickBite, and DineDash under `https://demo-booking-tau.vercel.app/`.
 
-Fares are per passenger. `ticketPrice()` multiplies fare by passengers for one group ticket row. `totalPrice()` adds insurance (250), meal (100), and fee (180) once per booking. Checkout's ticket `data-price` and confirmation use the group amount. `bookingParams()` carries current state through navigation and checkbox URL updates.
+`app/food_compare.py` runs platform comparisons concurrently. In replay mode it
+loads `recordings/food/{foodhub,quickbite,dinedash}.json`. In live mode it starts
+TinyFish runs, polls them, validates structured output, and saves live raw
+responses under ignored `recordings/food/live/` paths. Live behavior is
+unverified.
 
-Checkout preserves `data-item-id`, `data-item-type`, and `data-price`, `#total` with `data-total`, and `#confirm`. Unchecked options still have rows; extraction must exclude them. s5 adds an off-screen `data-hidden="true"` note. s6 removes the passenger display, omits passenger count from the ticket label, and sets `data-total="unknown"`. Internal URL state remains present. Its confirmation displays computed values.
-
-## Shared JSON messages
-
-These are the shared field names. `guard/models.py` validates each nested model and forbids extra fields. The site does not serialize these messages or consume decisions. Python uses Decimal for prices and totals; Pydantic JSON output may represent them as strings.
-
-```json
-{
-  "contract": {
-    "route": "Ludhiana-Delhi",
-    "date": "2026-10-25",
-    "quantity": 1,
-    "max_total": 1000,
-    "allow_extras": false
-  },
-  "cart": {
-    "cart_id": "c_001",
-    "items": [
-      {
-        "id": "t1",
-        "type": "ticket",
-        "price": 1000,
-        "route": "Ludhiana-Delhi",
-        "date": "2026-10-25"
-      }
-    ],
-    "total": 1000,
-    "passengers": 1
-  },
-  "decision": {
-    "result": "allow|block|ask",
-    "reasons": ["..."],
-    "remove_item_ids": [],
-    "flags": []
-  }
-}
+```text
+FoodContract + three platform URLs
+  -> compare_all (parallel)
+  -> guard.food_rank.rank
+  -> Store.create_food_task (comparison/ranking events)
+  -> app.food_workflow.run_food_task
+       -> stage_winner (stops before order)
+       -> guard.food_checker.check_food_cart
+       -> one fix_staged_cart pass only when removal IDs exist
+       -> re-check
+       -> commit_staged_order only after allow
 ```
 
-`result` is one of allow, block, or ask. Item types are ticket, insurance, meal, and fee. Quantity is intended to mean authorized passengers. `max_total` is inclusive, so the demo allows exactly Rs 1,000.
+The normal guarded path records `food_stage_started`, `food_staged`,
+`food_decision`, optional fix/recheck events, and simulated commit events in the
+same SQLite task event chain. `app/food_workflow.py` verifies task status,
+stored decision, cart hash, and cart total before its guarded commit call.
 
-The live staging response uses `{"cart": {...}, "hidden_text": [], "checkout_html": "<section id=...>...</section>", "extraction_error": null}`. `checkout_html` must contain the literal checkout cart HTML, including each row's `data-item-id` and `data-item-type` attributes. Staging compares every returned item ID and type with those rows and rejects missing, duplicate, or mismatched IDs. If the attributes cannot be read, the agent must return `cart: null` and an explanation in `extraction_error` instead of inventing IDs. Staging retries one invalid extraction, then reports an error without returning a cart for removal. This validates agent-supplied HTML; it is not independent proof of the remote DOM. The shared Contract, Cart, and Decision models are unchanged. The curated replay fixture retains its existing cart/hidden_text envelope without HTML evidence.
+`guard_off` is implemented as an explicit demo bypass in the food workflow and
+is used by the evaluator for before/after measurement. It is not part of the
+normal guarded path.
 
-Hidden text is supplied separately to `check()`, not stored in Cart. Missing information uses `"total": null` and `"passengers": null`. The staging prompt requests those fields but does not explicitly explain s6's unknown-to-null mapping. Replay reads saved data rather than extracting the site.
+## Food checker
 
-## Checker behavior and mismatches
+`guard/food_checker.py` is deterministic and has no network or LLM calls. In
+order, it asks for missing total/quantity, blocks non-vegetarian food for a veg
+contract, blocks a quantity mismatch, blocks unauthorized tip/donation/membership
+items with their actual IDs, blocks budget and unexplained-total differences,
+blocks an unverifiable/ineligible applied coupon, and asks on hidden
+instruction-like text only after the preceding checks allow. `guard.checker`
+re-exports this function for compatibility.
 
-The checker applies these rules in order: missing total/ticket/passengers → ask; route/date mismatch → block; ticket-row count differs from quantity → block; forbidden extras → block with removal IDs; total above cap → block; item sum differs from total → block; suspicious supplied hidden text → ask with flags; otherwise allow. Hidden text cannot weaken a previous block. `guard/hidden_text.py` only scans supplied strings using a small set of regular expressions.
+## Simulation boundary
 
-The quantity rule does not implement passenger authorization. It counts ticket rows and never compares a present `cart.passengers` with `contract.quantity`. The preceding route/date rule requires exactly one matching row. One correctly priced group row for two authorized passengers is blocked as only one item; two matching rows are also blocked. With sufficient budget, a one-row cart with an unauthorized passenger count can pass. The Python schema and rules are unchanged in this site task.
+The food commit prompt instructs the agent to proceed only when the site itself
+identifies the order as simulated and to avoid payment or personal data. In
+replay it returns a fixture-like simulated order ID. The code does not integrate
+a payment provider. Food commits currently record task events rather than a
+normal immutable `/api/orders` snapshot.
 
-Other gaps: extraction must exclude unchecked extras, supply s5's hidden text separately, and map s6's unknown values to null. No deterministic extractor implements these translations. The backend always uses the fixed one-passenger contract. Python fixtures use different cart IDs for s2-s6, while original browser URLs use c_001; the checker does not authorize by cart ID.
+## Evaluation
 
-## Files and backend flow
+`scripts/eval_food.py` runs `clean`, `extras`, `qty2`, `hidden`, and `nototal`
+through the existing food run loop, guard off and on, for a configurable number
+of repetitions. It defaults to replay and writes measured observations to
+`docs/eval-results.md`. It defines its rates in that generated document; it does
+not claim external-agent or production performance.
 
-| Files | Responsibility |
-| --- | --- |
-| `index.html` | Editable form, validation, filtered results, s4 promotion |
-| `app.js` | Inventory, URL defaults/state, group pricing |
-| `checkout.html` | Cart rows, extras, fee, s5/s6, URL updates, unconditional confirmation navigation |
-| `confirmation.html`, `styles.css` | Simulated order view and styling, including off-screen note |
-| `guard/models.py`, `guard/checker.py`, `guard/hidden_text.py` | Message validation, rules, supplied hidden-text scan |
-| `guard/contract_parser.py` | Demo contract and optional LLM parser with fallback |
-| `guard/scenarios.py`, `guard/demo.py` | Six fixtures, repaired s2, printed local decisions |
-| `app/tinyfish_client.py` | Synchronous TinyFish POST with url, goal, X-API-Key; validates COMPLETED status and result |
-| `app/staging.py` | Goal, result parsing, one parse retry, scenario recording read/write, replay |
-| `app/main.py` | POST /stage with cart_url and scenario; stages/checks once; returns cart/decision; maps StagingError to HTTP 502 |
-| `app/log.py` | SQLite events at data/events.db: request, cart, decision, or failure |
-| `scripts/stage_once.py`, `recordings/s2.json` | CLI stage/check and offline fixture |
-| `tests/test_scenarios.py`, `tests/test_staging_replay.py` | Guard expectations, timing assertion, s2 replay |
-| `pyproject.toml`, `.env.example`, `.gitignore` | Dependencies, test setup, key placeholder, ignored local files |
+## Planned
 
-Live staging saves each raw result to a unique `recordings/live/<scenario>_<uuid>.json` file, including failed extractions and retries. It never writes to `recordings/s2.json`, the stable replay fixture. Replay selects by scenario without verifying the URL against the cart. Only the API uses SQLite logging. Its allow stub for a missing guard is not a reliable guard-free mode because staging imports guard models before the fallback.
-
-## What is simulated
-
-Inventory, extras, fees, cart IDs, and order IDs are demo data. There is no payment, seat reservation, personal-data form, or server order record. Browser state is entirely in the URL. Opening confirmation directly produces a simulated order view. SQLite stores backend events rather than bookings.
-
-The s2 recording is a replay fixture. Its presence does not prove an external agent run occurred. Existing tests exercise Python fixtures and replay, not browser navigation or the complete loop. Deployment, live agent behavior, and benchmark claims are not established by this repository.
+- Food browser UI and user-facing food-contract review.
+- Natural-language food contract parsing.
+- Persistent food order snapshots through the standard order API.
+- Verified live TinyFish/public deployment behavior.
+- Payment, delivery, reservation, or external-order integrations.
 
 ## Could not verify from the code
 
-- Successful live TinyFish requests, stop-before-confirm behavior, or extraction of all six browser scenarios.
-- Successful live contract parsing and user confirmation of its output or fallback.
-- A deployed site reachable by an external agent.
-- Automated Run 2 repair, recheck, Run 3 commit, or guard-enforced confirmation; these are Planned.
-- External evaluation results or benchmark metrics.
-- Completed browser verification; Computer Use was stopped by the user.
+- That a live platform is reachable or returns complete, accurate option/cart evidence.
+- Stop-before-order and simulated-only behavior of a live TinyFish run.
+- Any real payment, restaurant order, delivery, coupon redemption, ETA, rating, or taste claim.
