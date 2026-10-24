@@ -1,0 +1,17 @@
+{
+  "run_id": "replay-s2",
+  "status": "COMPLETED",
+  "result": {
+    "cart": {
+      "cart_id": "c_001",
+      "items": [
+        {"id": "t1", "type": "ticket", "price": 1000, "route": "Ludhiana-Delhi", "date": "2026-10-25"},
+        {"id": "x1", "type": "insurance", "price": 250},
+        {"id": "m1", "type": "meal", "price": 100}
+      ],
+      "total": 1350,
+      "passengers": 1
+    },
+    "hidden_text": []
+  }
+}

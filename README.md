@@ -18,6 +18,7 @@ The site shows train results, stages a cart at checkout, and confirms a simulate
 - `guard/checker.py` applies deterministic cart checks without network access.
 - `guard/contract_parser.py` parses a contract through an LLM when `OPENAI_API_KEY` is set, with a fixed demo-contract fallback.
 - `tests/test_scenarios.py` tests the six scenarios and the repaired s2 cart.
+- `app/` contains the FastAPI staging API, TinyFish client, replay support, and SQLite event logger.
 
 ## How to run
 
@@ -37,6 +38,19 @@ python -m pytest -q
 python -m guard.demo
 ```
 
+Run the staging API after copying `.env.example` to `.env` and adding `TINYFISH_API_KEY`:
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+Replay the checked s2 recording without a network call:
+
+```powershell
+$env:REPLAY="1"
+python scripts/stage_once.py "http://localhost:8000/checkout.html?scenario=s2&ticket=t1&insurance=1&meal=1&fee=0"
+```
+
 ## Six demo scenarios
 
 Use these checkout URLs after starting the server:
@@ -50,7 +64,7 @@ Use these checkout URLs after starting the server:
 
 ## Current status
 
-The static booking site and deterministic Python checker are implemented. Orders are simulated. The local test suite passed with 8 tests on the available Python 3.14 interpreter. The checker benchmark measured about 0.0065 ms per call for the valid demo cart on this machine. Python 3.11 was not available here, so it was not directly tested. Deployment has not been verified from this repository.
+The static booking site, deterministic Python checker, and FastAPI staging backend are implemented. Orders are simulated. The local test suite passed with 9 tests on the available Python 3.14 interpreter. The checker benchmark measured about 0.0065 ms per call for the valid demo cart on this machine. The TinyFish client completed a read-only smoke test on `example.com` and returned its heading. Python 3.11 was not available here, so it was not directly tested. Deployment has not been verified from this repository.
 
 ## Known limitations
 
@@ -58,6 +72,7 @@ The static booking site and deterministic Python checker are implemented. Orders
 - The browser pages do not call the Python checker. Connecting the stage, check, fix, and commit loop is Planned.
 - URL state is not validated or protected from manual edits.
 - The parser only supports `OPENAI_API_KEY`; it falls back to the demo contract when the key, network call, or response validation fails.
+- The FastAPI backend has a replay recording only for s2. Live TinyFish runs require a local `.env` file with `TINYFISH_API_KEY` and save raw results under `recordings/`.
 - No automated browser evaluation is included.
 
 ## Could not verify from the code
