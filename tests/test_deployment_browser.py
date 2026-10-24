@@ -46,7 +46,8 @@ def public_proxy(artifact_root):
     env = os.environ.copy()
     env.update(AGENTGUARD_DB=str(artifact_root / "state.db"), AGENTGUARD_DEPLOYMENT_MODE="local",
                AGENTGUARD_PUBLIC_ORIGIN="https://demo-booking-tau.vercel.app",
-               AGENTGUARD_BACKEND_HOST="agentguard-test-only.fly.dev", AGENTGUARD_ENABLE_AGENT_RUNS="false")
+               AGENTGUARD_BACKEND_HOST="agentguard-test-only.fly.dev", AGENTGUARD_ENABLE_AGENT_RUNS="false",
+               RECEIPT_KEY="test-only-public-proxy-receipt-key")
     env.pop("VERCEL", None)
     processes = []
     log = (artifact_root / "backend.log").open("w", encoding="utf-8")

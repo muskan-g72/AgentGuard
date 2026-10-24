@@ -156,10 +156,11 @@ silently copied into it. Existing local data is preserved.
 
 ## Verified locally; limits
 
-**163 relevant tests passed**, including two real Chromium/proxy tests. The
-command below covers the changed application, request checking, TinyFish client,
-parser, deployment generator/configuration, readiness checks and restart paths.
-Unrelated intent-gap/page-scan/scenario suites were not rerun for this task.
+**333 combined tests passed after the origin/main integration**, including the
+real Chromium, proxy, deployment, intent-gap, page-scan and scenario suites. The
+full command was `python -m pytest -q -p no:cacheprovider --basetemp
+test-results\pytest-integration-merge`. The ignored in-repository temporary root
+avoided an unrelated Windows user-temp ACL problem.
 
 - Generated proxy routes were exercised against a real HTTP backend. The actual
   Confirm button created a server snapshot through that proxy. Direct arbitrary
@@ -172,7 +173,8 @@ Unrelated intent-gap/page-scan/scenario suites were not rerun for this task.
   Linux container smoke used an actual bind mount recognized at `/data`. Neither
   the Windows process test nor the container bind mount is a Fly-volume test.
 - Readiness rejects mixed release/UI/proxy versions, ephemeral storage, missing
-  checker and unidentified DB storage. Public-host near misses are rejected.
+  checker, missing receipt signer and unidentified DB storage. Public-host near
+  misses are rejected.
 - Raw API parser/refusal/fallback handling was tested with mocked HTTP only.
   Running the LLM smoke without `--live` returned `not_run`, without a call.
 - The new read-only public preflight was actually run against the current URL.
@@ -191,6 +193,17 @@ needed. The image configuration and live process table both showed exactly:
 ```text
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1
 ```
+
+After integration, the same Dockerfile was rebuilt as
+`agentguard-integration:local` (local image ID begins `9bc33ea54208`). A bounded
+startup smoke reported `protected-v2`, durable storage, `db_ok` and a configured
+receipt signer; the process table again showed the exact single-worker command
+above. The bind mount created exactly `/data/workflow.db`, not a filename with a
+literal backslash. Only that new smoke container and its new temporary mount
+directory were removed; the image was retained. The historical two-restart
+persistence evidence below was not rerun inside this rebuilt image; equivalent
+process-restart persistence remains covered by the passing deployment/browser
+suite.
 
 The image was run in durable mode with a real bind mount at `/data` and
 `AGENTGUARD_DB=/data/workflow.db`. The retained host-side WSL evidence directory
@@ -306,6 +319,13 @@ fly apps create $FlyApp --org $FlyOrg
 if ($LASTEXITCODE -ne 0) { throw "Proposed Fly name unavailable or app creation failed; stop and regenerate for any new name" }
 fly volumes create $FlyVolume --app $FlyApp --region $FlyRegion --size 1 --snapshot-retention 7 --yes
 if ($LASTEXITCODE -ne 0) { throw "Volume creation failed" }
+$ReceiptBytes = [byte[]]::new(32)
+[Security.Cryptography.RandomNumberGenerator]::Fill($ReceiptBytes)
+$env:AGENTGUARD_RECEIPT_KEY = [Convert]::ToBase64String($ReceiptBytes)
+"RECEIPT_KEY=$env:AGENTGUARD_RECEIPT_KEY" | fly secrets import --app $FlyApp
+$ReceiptSecretExit = $LASTEXITCODE
+Remove-Item Env:AGENTGUARD_RECEIPT_KEY
+if ($ReceiptSecretExit -ne 0) { throw "Receipt secret configuration failed" }
 fly ips allocate-v6 --app $FlyApp
 fly ips allocate-v4 --shared --app $FlyApp
 fly deploy . --config .\deploy\generated\fly.toml --app $FlyApp --dockerfile Dockerfile --ha=false --remote-only
@@ -372,7 +392,11 @@ context: it must show **No confirmed order**. Exercise the existing checkout
 review/check/Confirm UI as usual; it uses relative protected same-origin API
 paths. Direct-backend `/version` and `/health` identify the served source and
 storage; after Vercel cutover, `/deployment.json` adds the proxy expectation.
-These identities are not signed receipts.
+The release and storage identities are operational evidence, not receipts. Once
+`RECEIPT_KEY` is configured, each task additionally exposes a signed receipt at
+`/tasks/{id}/receipt` and verifies its hash chain at
+`/tasks/{id}/receipt/verify`. Rotating or losing the key prevents old receipt
+signatures from being reproduced, so retain it as a Fly secret and outside Git.
 
 Only after the direct-backend readiness and restart checks pass, confirm exactly
 one Machine in `sin` and its one attached 1GB volume, then cut over Vercel. Link

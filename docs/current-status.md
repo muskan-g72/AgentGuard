@@ -188,10 +188,13 @@ LLM parsing was not exercised. No keys were printed or written to git.
   fresh check. LLMs cannot approve.
 - `scan_html` is heuristic and does not evaluate external CSS/scripts or layout;
   Playwright reads computed styles independently.
-- `/tasks/{id}/events` returns persisted history for polling, not SSE. TinyFish
-  progress is streamed to the terminal. No production authentication or signed
-  external proof receipt was added. Local DB snapshots/hashes bind approval to
-  content, but do not protect against the database owner rewriting storage.
+- `/tasks/{id}/events` returns persisted, hash-chained events as a finite SSE
+  response by default; `follow=true` enables a bounded live stream. TinyFish
+  progress is streamed to the terminal. No production authentication was added.
+- `/tasks/{id}/receipt` and `/tasks/{id}/receipt/verify` expose an HMAC-signed
+  proof receipt when `RECEIPT_KEY` is configured. Local DB snapshots and hashes
+  bind approval to content, but do not protect against the database owner
+  rewriting storage.
 - Client timeout cancellation is best effort; remote duration is also bounded
   by the provider's server limit. The TestClient deprecation warning is upstream.
 
@@ -211,6 +214,7 @@ Start backend and website together in one terminal (no separate static server):
 ```powershell
 $env:AGENTGUARD_DB = "data/workflow.db"
 $env:DEMO_LOCAL_URL = "http://127.0.0.1:8001"
+$env:RECEIPT_KEY = "<generate-a-local-high-entropy-value>"
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
@@ -275,7 +279,8 @@ Invoke-RestMethod http://127.0.0.1:8001/tasks/6f5439b3-57a7-443c-9e3e-ca79e86776
 
 API: `POST /tasks`, `POST /tasks/{id}/answers`, `POST /tasks/{id}/confirm`,
 `POST /tasks/{id}/run` (`mode`, optional `cart_url`, `confirm`), `GET /tasks/{id}`,
-`GET /tasks/{id}/events`; `POST /api/carts`, `GET/PUT /api/carts/{id}`,
+`GET /tasks/{id}/events`, `GET /tasks/{id}/receipt`,
+`GET /tasks/{id}/receipt/verify`; `POST /api/carts`, `GET/PUT /api/carts/{id}`,
 `POST /api/carts/{id}/check`, `POST /api/carts/{id}/confirm`,
 `GET /api/orders/{id}`, `GET /health`. `POST /stage` requires a reviewed
 `task_id` and never issues approval on agent-supplied evidence alone.

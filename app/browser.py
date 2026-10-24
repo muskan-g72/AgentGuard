@@ -98,3 +98,57 @@ def remove_items(page, item_ids):
         checkbox.uncheck()
         page.evaluate("() => window.AgentGuardCheckout.synced()")
         wait_ready(page)
+
+# Compatibility interface for deterministic orchestration tests from origin/main.
+# The production application uses the Playwright functions above and the
+# server-side Store approval/request gate; it never trusts this adapter to
+# authorize or persist an order.
+from typing import Protocol
+
+from guard.models import Contract
+
+from .staging import _parse, stage_cart_details
+from .tinyfish_client import run_agent
+
+
+class BrowserError(RuntimeError):
+    pass
+
+
+class Browser(Protocol):
+    def stage_cart(self, url: str, contract: Contract) -> Cart: ...
+    def fix_cart(self, url: str, remove_item_ids: list[str]) -> Cart: ...
+
+
+class TinyFishBrowser:
+    def stage_cart(self, url: str, contract: Contract) -> Cart:
+        return stage_cart_details(url, contract)[0]
+
+    def _cart(self, url: str, goal: str) -> Cart:
+        for _ in range(2):
+            try:
+                return _parse(run_agent(url, goal))[0]
+            except Exception:
+                continue
+        raise BrowserError("TinyFish returned malformed cart JSON twice.")
+
+    def fix_cart(self, url: str, remove_item_ids: list[str]) -> Cart:
+        return self._cart(
+            url,
+            f"Remove only these cart item ids: {remove_item_ids}. "
+            "Do not confirm or pay. Return cart JSON.",
+        )
+
+class FakeBrowser:
+    def __init__(self, *, carts: list[Cart] | None = None):
+        self.carts = list(carts or [])
+        self.stage_calls = 0
+        self.fix_calls = 0
+
+    def stage_cart(self, url: str, contract: Contract) -> Cart:
+        self.stage_calls += 1
+        return self.carts.pop(0)
+
+    def fix_cart(self, url: str, remove_item_ids: list[str]) -> Cart:
+        self.fix_calls += 1
+        return self.carts[0]

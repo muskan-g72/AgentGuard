@@ -5,7 +5,9 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import UTC, datetime
 import hashlib
+import hmac
 import json
+import os
 import secrets
 import sqlite3
 from pathlib import Path
@@ -83,14 +85,64 @@ class Store:
         row = db.execute("SELECT body FROM tasks WHERE id=?", (task_id,)).fetchone()
         if row is None:
             raise WorkflowError("Task not found.", 404)
-        return json.loads(row[0])
+        task = json.loads(row[0])
+        self._ensure_event_chain(task)
+        return task
 
     def _save_task(self, db, task):
         db.execute("INSERT OR REPLACE INTO tasks VALUES (?,?)", (task["task_id"], canonical(task)))
 
-    def _event(self, db, task, status, detail):
+    @staticmethod
+    def _event_core(event):
+        return {key: event[key] for key in ("id", "ts", "type", "payload", "prev_hash")}
+
+    @classmethod
+    def _event_digest(cls, event):
+        return hashlib.sha256(
+            (event["prev_hash"] + canonical(cls._event_core(event))).encode()
+        ).hexdigest()
+
+    @classmethod
+    def _ensure_event_chain(cls, task):
+        """Upgrade pre-integration event rows without losing their evidence."""
+        previous = "0" * 64
+        upgraded = []
+        for index, original in enumerate(task.get("events", []), start=1):
+            if all(key in original for key in ("id", "ts", "type", "payload", "prev_hash", "hash")):
+                event = original
+            else:
+                status = original.get("status", task.get("status", "failed"))
+                detail = original.get("detail", "Legacy workflow event.")
+                timestamp = original.get("at", now())
+                event = {
+                    "id": index,
+                    "ts": timestamp,
+                    "type": original.get("type", "status_changed"),
+                    "payload": original.get("payload", {"status": status, "detail": detail}),
+                    "prev_hash": previous,
+                    "status": status,
+                    "at": timestamp,
+                    "detail": detail,
+                }
+                event["hash"] = cls._event_digest(event)
+            previous = event["hash"]
+            upgraded.append(event)
+        task["events"] = upgraded
+
+    def _event(self, db, task, status, detail, *, event_type="status_changed", payload=None):
         task["status"] = status
-        task["events"].append({"status": status, "at": now(), "detail": detail})
+        previous = task["events"][-1]["hash"] if task["events"] else "0" * 64
+        event = {
+            "id": len(task["events"]) + 1,
+            "ts": now(),
+            "type": event_type,
+            "payload": {"status": status, "detail": detail, **(payload or {})},
+            "prev_hash": previous,
+        }
+        event["hash"] = self._event_digest(event)
+        # Keep the original polling fields for the existing UI and scripts.
+        event.update({"status": status, "at": event["ts"], "detail": detail})
+        task["events"].append(event)
         self._save_task(db, task)
 
     def create_task(self, sentence: str, contract: Contract, scenario: str):
@@ -104,12 +156,27 @@ class Store:
                 "questions": questions, "answers": {}, "reviewed": False, "events": [],
                 "status": "awaiting_answers" if questions else "awaiting_confirmation"}
         with self.connection() as db:
-            self._save_task(db, task)
+            self._event(
+                db,
+                task,
+                task["status"],
+                "Task created and contract draft stored.",
+                event_type="task_created",
+                payload={"scenario": scenario},
+            )
         return task
 
     def task(self, task_id):
         with self.connection() as db:
-            return self._task(db, task_id)
+            task = self._task(db, task_id)
+            return {
+                **task,
+                "contract_confirmed": bool(task["reviewed"]),
+                "audit_events": task["events"],
+                "decision_history": [
+                    event for event in task["events"] if event["type"] == "check_result"
+                ],
+            }
 
     def answer(self, task_id, answers):
         with self.connection() as db:
@@ -125,7 +192,14 @@ class Store:
             task["contract"] = contract.model_dump(mode="json")
             task["answers"].update(answers)
             status = "awaiting_confirmation" if self._answered(task) else "awaiting_answers"
-            self._event(db, task, status, "Clarification answers saved; review is still required.")
+            self._event(
+                db,
+                task,
+                status,
+                "Clarification answers saved; review is still required.",
+                event_type="answers_recorded",
+                payload={"keys": sorted(answers)},
+            )
             return task
 
     @staticmethod
@@ -144,14 +218,22 @@ class Store:
             if contract is not None:
                 task["contract"] = contract.model_dump(mode="json")
             task["reviewed"] = True
-            self._event(db, task, "staging", "User explicitly reviewed and authorized this contract.")
+            self._event(
+                db,
+                task,
+                "awaiting_confirmation",
+                "User explicitly reviewed and authorized this contract.",
+                event_type="contract_confirmed",
+                payload={"contract_hash": digest(task["contract"])},
+            )
             return task
 
     def event(self, task_id, status, detail, **fields):
         with self.connection() as db:
             task = self._task(db, task_id)
+            event_type = fields.pop("event_type", "status_changed")
             task.update(fields)
-            self._event(db, task, status, detail)
+            self._event(db, task, status, detail, event_type=event_type, payload=fields)
             return task
 
     def _cart(self, db, cart_id):
@@ -198,6 +280,8 @@ class Store:
             cart = Cart.model_validate(current["cart"])
             if canonical(evidence) != canonical(cart):
                 raise WorkflowError("Browser extraction disagrees with the authoritative server cart; no approval issued.")
+            self._event(db, task, "staging", "Authoritative cart and browser evidence received.")
+            self._event(db, task, "checking", "Running the deterministic contract checker.")
             decision = Decision.model_validate(checker(contract, cart))
             # Supersede earlier approvals even when a new check returns ASK/BLOCK.
             db.execute("DELETE FROM approvals WHERE task_id=? AND cart_id=? AND token NOT IN (SELECT approval FROM orders)",
@@ -209,8 +293,14 @@ class Store:
                            (approval, task_id, cart_id, current["version"], digest(contract), digest(cart)))
             task["cart_id"] = cart_id
             task["decision"] = decision.model_dump(mode="json")
-            self._event(db, task, {"allow": "allowed", "block": "blocked", "ask": "awaiting_answers"}[decision.result],
-                        "Authoritative cart checked against independent browser extraction.")
+            self._event(
+                db,
+                task,
+                {"allow": "allowed", "block": "blocked", "ask": "blocked"}[decision.result],
+                "Authoritative cart checked against independent browser extraction.",
+                event_type="check_result",
+                payload={"decision": decision.model_dump(mode="json"), "cart_hash": digest(cart)},
+            )
             return {"decision": decision.model_dump(mode="json"), "approval": approval,
                     "cart_id": cart_id, "version": current["version"]}
 
@@ -250,9 +340,24 @@ class Store:
                         "task_id": task_id, "cart_version": current["version"], "cart": cart.model_dump(mode="json"),
                         "contract": contract.model_dump(mode="json"), "order_request": expected,
                         "cart_hash": digest(cart), "contract_hash": digest(contract)}
+            self._event(
+                db,
+                task,
+                "committing",
+                "Approval, contract, cart and outgoing request were revalidated atomically.",
+                event_type="commit_started",
+                payload={"cart_hash": digest(cart), "contract_hash": digest(contract)},
+            )
             db.execute("INSERT INTO orders VALUES (?,?,?)", (snapshot["order_id"], approval, canonical(snapshot)))
             task["order_id"] = snapshot["order_id"]
-            self._event(db, task, "done", "One immutable simulated order created atomically.")
+            self._event(
+                db,
+                task,
+                "done",
+                "One immutable simulated order created atomically.",
+                event_type="commit_result",
+                payload={"order_id": snapshot["order_id"], "total": snapshot["order_request"]["total"]},
+            )
             return snapshot
 
     def order(self, order_id):
@@ -261,3 +366,49 @@ class Store:
             if row is None:
                 raise WorkflowError("No confirmed server order exists.", 404)
             return json.loads(row[0])
+
+    @staticmethod
+    def _receipt_key():
+        key = os.getenv("RECEIPT_KEY")
+        if not key:
+            raise WorkflowError("Receipt signing is not configured.", 503)
+        return key.encode()
+
+    def receipt(self, task_id):
+        with self.connection() as db:
+            task = self._task(db, task_id)
+            final = None
+            if task.get("order_id"):
+                row = db.execute("SELECT snapshot FROM orders WHERE id=?", (task["order_id"],)).fetchone()
+                if row is not None:
+                    order = json.loads(row[0])
+                    final = {"order_id": order["order_id"], "total": order["order_request"]["total"]}
+            events = [
+                {key: event[key] for key in ("id", "ts", "type", "payload", "prev_hash", "hash")}
+                for event in task["events"]
+            ]
+        final_hash = events[-1]["hash"] if events else "0" * 64
+        signature = hmac.new(self._receipt_key(), final_hash.encode(), hashlib.sha256).hexdigest()
+        return {"task_id": task_id, "contract": task["contract"], "events": events,
+                "final": final, "signature": signature}
+
+    @classmethod
+    def verify_receipt_data(cls, receipt, key):
+        previous = "0" * 64
+        for index, event in enumerate(receipt.get("events", []), start=1):
+            if event.get("id") != index or event.get("prev_hash") != previous:
+                return {"valid": False, "broken_at": index}
+            try:
+                expected = cls._event_digest(event)
+            except (KeyError, TypeError, ValueError):
+                return {"valid": False, "broken_at": index}
+            if not hmac.compare_digest(str(event.get("hash", "")), expected):
+                return {"valid": False, "broken_at": index}
+            previous = expected
+        expected_signature = hmac.new(key, previous.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(str(receipt.get("signature", "")), expected_signature):
+            return {"valid": False, "broken_at": len(receipt.get("events", [])) + 1}
+        return {"valid": True}
+
+    def verify_receipt(self, task_id):
+        return self.verify_receipt_data(self.receipt(task_id), self._receipt_key())

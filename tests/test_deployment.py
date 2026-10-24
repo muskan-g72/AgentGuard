@@ -120,6 +120,7 @@ def ready_responses():
     version = release()
     values = {"/" + name: (ROOT / name).read_bytes() for name in ASSETS}
     health = {"release_id": version["release_id"], "db_ok": True, "checker_available": True,
+              "receipt_configured": True,
               "confirmation_protected": True, "public_origin": PUBLIC_ORIGIN,
               "storage": {"durable": True, "storage_id": "persistent-test-id"}}
     values.update({"/version": json.dumps(version).encode(), "/health": json.dumps(health).encode(),
@@ -149,7 +150,7 @@ def test_direct_backend_preflight_checks_the_configured_public_origin():
     assert result["ready"] is True
 
 
-@pytest.mark.parametrize("fault", ["ephemeral", "wrong_release", "stale_asset", "wrong_proxy", "missing_checker", "missing_storage_id"])
+@pytest.mark.parametrize("fault", ["ephemeral", "wrong_release", "stale_asset", "wrong_proxy", "missing_checker", "missing_receipt_key", "missing_storage_id"])
 def test_preflight_rejects_inconsistent_or_ephemeral_deployment(fault):
     values = ready_responses()
     health = json.loads(values["/health"])
@@ -157,6 +158,8 @@ def test_preflight_rejects_inconsistent_or_ephemeral_deployment(fault):
         health["storage"]["durable"] = False
     elif fault == "missing_checker":
         health["checker_available"] = False
+    elif fault == "missing_receipt_key":
+        health["receipt_configured"] = False
     elif fault == "missing_storage_id":
         health["storage"].pop("storage_id")
     elif fault == "wrong_release":

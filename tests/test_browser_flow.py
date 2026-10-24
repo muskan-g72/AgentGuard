@@ -158,7 +158,8 @@ def test_actual_confirm_button_creates_server_order_and_page_uses_snapshot(check
 def test_direct_confirmation_page_never_fabricates_an_order(server, chromium, query):
     with chromium.new_context() as context:
         page = context.new_page()
-        page.goto(server[0] + "/confirmation.html?" + query, wait_until="networkidle")
+        page.goto(server[0] + "/confirmation.html?" + query, wait_until="domcontentloaded")
+        page.wait_for_function("document.documentElement.dataset.orderCheckComplete === 'true'")
         assert page.locator("h1").inner_text() == "No confirmed order"
         assert page.locator("#order").get_attribute("data-order-id") is None
 
@@ -223,7 +224,7 @@ def test_workflow_runs_actual_stage_fix_recheck_and_confirm(server):
 def test_workflow_stops_on_missing_information(server):
     task_id = task_for(server[1], "s6")
     result = server[1].post('/tasks/' + task_id + '/run', json={"mode": "local", "confirm": True}).json()
-    assert result["status"] == "awaiting_answers"
+    assert result["status"] == "blocked"
     assert "order_id" not in result
 
 

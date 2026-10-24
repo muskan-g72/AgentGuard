@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+import json
+import time
 from functools import partial
 from pathlib import Path
 from typing import Literal
@@ -11,9 +13,11 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from pydantic import ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from guard.contract_parser import DEMO_CONTRACT, parse_contract
 from guard.models import Cart, Contract, Message, OrderRequest
 
 from .catalog import BookingState
@@ -110,6 +114,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         with store().connection() as db:
             db.execute("SELECT 1").fetchone()
         return {"replay": os.getenv("REPLAY") == "1", "tinyfish_configured": bool(os.getenv("TINYFISH_API_KEY")),
+                "receipt_configured": bool(os.getenv("RECEIPT_KEY")),
                 "db_ok": True, "checker_available": callable(check) and callable(check_request),
                 "confirmation_protected": True, "release_id": version["release_id"], "instance_id": instance_id,
                 "public_origin": settings.public_origin, "agent_runs_enabled": settings.agent_runs_enabled,
@@ -125,8 +130,10 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         if not body.guard_enabled:
             raise WorkflowError("The confirmation guard cannot be disabled.", 422)
         if body.draft_contract is None:
-            from guard.contract_parser import parse_contract
-            draft = parse_contract(body.sentence)
+            try:
+                draft = parse_contract(body.sentence)
+            except Exception:
+                draft = DEMO_CONTRACT.model_copy(deep=True)
         else:
             draft = body.draft_contract
         return store().create_task(body.sentence, draft, body.scenario)
@@ -142,11 +149,43 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     @api.post("/tasks/{task_id}/confirm")
     def review(task_id: str, body: Review):
         guard()
-        return store().review(task_id, body.contract)
+        store().review(task_id, body.contract)
+        return store().task(task_id)
 
     @api.get("/tasks/{task_id}/events")
-    def events(task_id: str):
-        return store().task(task_id)["events"]
+    def events(task_id: str, after_id: int = 0, follow: bool = False):
+        store().task(task_id)
+
+        def stream():
+            cursor = after_id
+            idle = 0
+            while True:
+                rows = [event for event in store().task(task_id)["events"] if event["id"] > cursor]
+                for event in rows:
+                    cursor = event["id"]
+                    yield ("id: " + str(cursor) + "\n" + "event: " + event["type"] + "\n"
+                           + "data: " + json.dumps(event, separators=(",", ":")) + "\n\n")
+                if not follow:
+                    return
+                if rows:
+                    idle = 0
+                else:
+                    idle += 1
+                    yield ": keepalive\n\n"
+                if idle >= 60:
+                    return
+                time.sleep(1)
+
+        return StreamingResponse(stream(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+    @api.get("/tasks/{task_id}/receipt")
+    def receipt(task_id: str):
+        return store().receipt(task_id)
+
+    @api.get("/tasks/{task_id}/receipt/verify")
+    def verify_receipt(task_id: str):
+        return store().verify_receipt(task_id)
 
     @api.post("/api/carts")
     def create_cart(body: BookingState):

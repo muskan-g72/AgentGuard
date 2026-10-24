@@ -3,8 +3,9 @@
 <body><main><header><h1 id="order-heading">No confirmed order</h1></header><p class="banner">SIMULATED ORDER — no payment taken</p><section class="card" id="order">A confirmed server record is required. URL booking values do not create an order.</section></main>
 <script>
 (async () => {
+  const root = document.documentElement;
   const id = new URLSearchParams(location.search).get('order_id');
-  if (!id) return;
+  if (!id) { root.dataset.orderCheckComplete = 'true'; return; }
   try {
     const response = await fetch('/api/orders/' + encodeURIComponent(id));
     if (!response.ok) return;
@@ -18,5 +19,6 @@
     Object.entries(details).forEach(([label, value]) => { const p = document.createElement('p');
       p.textContent = label + ': ' + value; section.append(p); });
   } catch { /* Keep the explicit unconfirmed state on every failure. */ }
+  finally { root.dataset.orderCheckComplete = 'true'; }
 })();
 </script></body></html>

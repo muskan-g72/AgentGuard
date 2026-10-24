@@ -110,7 +110,7 @@ def run_task(store: Store, task_id: str, mode="local", cart_url=None, confirm=Fa
                 order_image = artifacts / f"{task_id}-order.png"
                 page.screenshot(path=str(order_image), full_page=True)
                 return store.event(task_id, "done", "Confirmed order read back from the server.", order_screenshot=str(order_image))
-            status = {"allow": "allowed", "block": "blocked", "ask": "awaiting_answers"}[decision["result"]]
+            status = {"allow": "allowed", "block": "blocked", "ask": "blocked"}[decision["result"]]
             return store.event(task_id, status, "Confirmation paused unless explicitly requested and allowed.", **fields)
     except Exception as error:
         # Local safe error classes carry useful details; don't expose arbitrary SDK messages.

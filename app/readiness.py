@@ -62,8 +62,12 @@ def verify_readiness(base_url: str, *, expected_release=None, require_durable=Tr
             or health.get("release_id") != version["release_id"]
             or expected_release is not None and version["release_id"] != expected_release):
         raise ReadinessError("The served backend release differs from the expected protected release.")
-    if not all(health.get(key) is True for key in ("db_ok", "checker_available", "confirmation_protected")):
-        raise ReadinessError("The authoritative database, checker or protected confirmation is unavailable.")
+    if not all(health.get(key) is True for key in (
+        "db_ok", "checker_available", "confirmation_protected", "receipt_configured",
+    )):
+        raise ReadinessError(
+            "The authoritative database, checker, protected confirmation, or receipt signer is unavailable."
+        )
     storage = health.get("storage", {})
     if not isinstance(storage, dict) or not storage.get("storage_id"):
         raise ReadinessError("The server did not identify its authoritative persistent database.")

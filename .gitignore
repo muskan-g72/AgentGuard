@@ -2,6 +2,9 @@
 .venv/
 __pycache__/
 *.py[cod]
+*.pyc
+guard.egg-info/
+.pytest_cache/
 data/
 recordings/live/
 test-results/
