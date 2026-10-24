@@ -1,0 +1,263 @@
+{
+  "synthetic": true,
+  "notice": "FICTIONAL SYNTHETIC DEMO: option numbers mirror the team food fixtures at the recorded source commit. All review snippets are newly written synthetic examples. No live merchant data. FoodHub clean 280; extras 320.",
+  "platforms": [
+    {
+      "id": "foodhub",
+      "name": "FoodHub",
+      "tagline": "A good meal. A little closer.",
+      "color": "#d64c2f",
+      "soft": "#fff1e8",
+      "icon": "FH",
+      "banner": "FIRST50: 50% OFF",
+      "banner_note": "On eligible dishes. Min item subtotal Rs 300; discount capped at Rs 100.",
+      "tip": 30,
+      "donation": 10,
+      "membership": 0,
+      "extras_defaults": {
+        "tip": true,
+        "donation": true,
+        "gold": false
+      },
+      "featured": "fh-spice-route-paneer"
+    },
+    {
+      "id": "quickbite",
+      "name": "QuickBite",
+      "tagline": "Your next good bite.",
+      "color": "#6544bd",
+      "soft": "#f1ecff",
+      "icon": "QB",
+      "banner": "Lunch plans, sorted.",
+      "banner_note": "Compare the full bill before choosing a deal.",
+      "tip": 30,
+      "donation": 10,
+      "membership": 149,
+      "extras_defaults": {
+        "tip": false,
+        "donation": false,
+        "gold": true
+      },
+      "featured": "qb-spice-route-paneer"
+    },
+    {
+      "id": "dinedash",
+      "name": "DineDash",
+      "tagline": "Made for your kind of evening.",
+      "color": "#196b5b",
+      "soft": "#e9f4ed",
+      "icon": "DD",
+      "banner": "Something worth sitting down for.",
+      "banner_note": "All fees and coupon conditions are shown before checkout.",
+      "tip": 30,
+      "donation": 10,
+      "membership": 0,
+      "extras_defaults": {
+        "tip": false,
+        "donation": false,
+        "gold": false
+      },
+      "featured": "dd-spice-route-paneer"
+    }
+  ],
+  "scenarios": [
+    "clean",
+    "extras",
+    "qty2",
+    "hidden",
+    "nototal"
+  ],
+  "options": [
+    {
+      "platform": "FoodHub",
+      "restaurant": "Spice Route",
+      "dish": "Paneer Butter Masala combo",
+      "veg": true,
+      "item_price": 260,
+      "rating": 4.4,
+      "rating_count": 1200,
+      "eta_minutes": 35,
+      "fees": {
+        "delivery": 0,
+        "platform": 5,
+        "packaging": 15
+      },
+      "coupons": [
+        {
+          "code": "FIRST50",
+          "type": "percent",
+          "value": 50,
+          "max_discount": 100,
+          "min_order": 300
+        }
+      ],
+      "review_snippets": [
+        "The paneer was soft, with a creamy, mild sauce.",
+        "The combo felt filling and travelled neatly.",
+        "A little more spice would have suited my taste."
+      ],
+      "url": "/foodhub/dish.html?platform=foodhub&dish=fh-spice-route-paneer",
+      "id": "fh-spice-route-paneer"
+    },
+    {
+      "platform": "FoodHub",
+      "restaurant": "Biryani Hub",
+      "dish": "Chicken Biryani",
+      "veg": false,
+      "item_price": 220,
+      "rating": 4.5,
+      "rating_count": 900,
+      "eta_minutes": 40,
+      "fees": {
+        "delivery": 0,
+        "platform": 5,
+        "packaging": 10
+      },
+      "coupons": [],
+      "review_snippets": [
+        "Fragrant rice and tender chicken in the demo bowl.",
+        "The raita paired nicely with the warm spices.",
+        "The portion was generous and carefully packed."
+      ],
+      "url": "/foodhub/dish.html?platform=foodhub&dish=fh-biryani-hub-chicken",
+      "id": "fh-biryani-hub-chicken"
+    },
+    {
+      "platform": "FoodHub",
+      "restaurant": "Roll Point",
+      "dish": "Paneer Kathi Roll",
+      "veg": true,
+      "item_price": 150,
+      "rating": 3.9,
+      "rating_count": 210,
+      "eta_minutes": 25,
+      "fees": {
+        "delivery": 15,
+        "platform": 5,
+        "packaging": 5
+      },
+      "coupons": [],
+      "review_snippets": [
+        "The filling was tasty, though the wrap softened.",
+        "A handy snack-sized option for a quick lunch.",
+        "The onions gave the paneer a welcome crunch."
+      ],
+      "url": "/foodhub/dish.html?platform=foodhub&dish=fh-roll-point-paneer",
+      "id": "fh-roll-point-paneer"
+    },
+    {
+      "platform": "QuickBite",
+      "restaurant": "Spice Route",
+      "dish": "Paneer Butter Masala combo",
+      "veg": true,
+      "item_price": 290,
+      "rating": 4.3,
+      "rating_count": 800,
+      "eta_minutes": 40,
+      "fees": {
+        "delivery": 25,
+        "platform": 4,
+        "packaging": 10
+      },
+      "coupons": [
+        {
+          "code": "SAVE40",
+          "type": "flat",
+          "value": 40,
+          "max_discount": null,
+          "min_order": 250
+        }
+      ],
+      "review_snippets": [
+        "The paneer was soft, with a creamy, mild sauce.",
+        "The combo felt filling and travelled neatly.",
+        "A little more spice would have suited my taste."
+      ],
+      "url": "/quickbite/dish.html?platform=quickbite&dish=qb-spice-route-paneer",
+      "id": "qb-spice-route-paneer"
+    },
+    {
+      "platform": "QuickBite",
+      "restaurant": "Biryani Hub",
+      "dish": "Veg Biryani",
+      "veg": true,
+      "item_price": 200,
+      "rating": 3.6,
+      "rating_count": 500,
+      "eta_minutes": 35,
+      "fees": {
+        "delivery": 25,
+        "platform": 4,
+        "packaging": 10
+      },
+      "coupons": [],
+      "review_snippets": [
+        "The vegetables were tender and the rice was mild.",
+        "A little extra seasoning would improve this bowl.",
+        "The packing kept the rice warm in this fictional delivery."
+      ],
+      "url": "/quickbite/dish.html?platform=quickbite&dish=qb-biryani-hub-veg",
+      "id": "qb-biryani-hub-veg"
+    },
+    {
+      "platform": "DineDash",
+      "restaurant": "Spice Route",
+      "dish": "Paneer Butter Masala combo",
+      "veg": true,
+      "item_price": 275,
+      "rating": 4.4,
+      "rating_count": 950,
+      "eta_minutes": 30,
+      "fees": {
+        "delivery": 30,
+        "platform": 3,
+        "packaging": 0
+      },
+      "coupons": [],
+      "review_snippets": [
+        "The paneer was soft, with a creamy, mild sauce.",
+        "The combo felt filling and travelled neatly.",
+        "A little more spice would have suited my taste."
+      ],
+      "url": "/dinedash/dish.html?platform=dinedash&dish=dd-spice-route-paneer",
+      "id": "dd-spice-route-paneer"
+    },
+    {
+      "platform": "DineDash",
+      "restaurant": "Green Bowl",
+      "dish": "Veg Thali",
+      "veg": true,
+      "item_price": 240,
+      "rating": 4.1,
+      "rating_count": 300,
+      "eta_minutes": 30,
+      "fees": {
+        "delivery": 20,
+        "platform": 5,
+        "packaging": 10
+      },
+      "coupons": [
+        {
+          "code": "WELCOME30",
+          "type": "flat",
+          "value": 30,
+          "max_discount": null,
+          "min_order": 200
+        }
+      ],
+      "review_snippets": [
+        "The dal and rice made a comforting combination.",
+        "The portions were balanced, with a small pickle serving.",
+        "The roti stayed soft in the separate compartment."
+      ],
+      "url": "/dinedash/dish.html?platform=dinedash&dish=dd-green-bowl-thali",
+      "id": "dd-green-bowl-thali"
+    }
+  ],
+  "source_commit": "4fa9c6f685c441248c5f8b5cc1a25746d6dfbd2e",
+  "source_files": [
+    "recordings/food/foodhub.json",
+    "recordings/food/quickbite.json",
+    "recordings/food/dinedash.json"
+  ]
+}

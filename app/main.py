@@ -301,6 +301,8 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         return run_food_task(store(), body.task_id, api.state.food_browser_factory())
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
+    food_pages = {"index.html", "dish.html", "checkout.html", "confirmation.html"}
+    food_platforms = {"foodhub", "quickbite", "dinedash"}
 
     @api.get("/")
     def index():
@@ -311,6 +313,33 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         if asset not in assets:
             raise HTTPException(404)
         return FileResponse(ROOT / asset)
+
+    @api.get("/data/food.json")
+    def food_catalog_asset():
+        return FileResponse(ROOT / "data" / "food.json", media_type="application/json")
+
+    @api.get("/food-demo/{asset}")
+    def food_demo_asset(asset: str):
+        allowed = {"index.html", "site.mjs", "logic.mjs", "styles.css", "plate.svg"}
+        if asset not in allowed:
+            raise HTTPException(404)
+        return FileResponse(ROOT / "food-demo" / asset)
+
+    @api.get("/food-demo/")
+    def food_demo_index():
+        return FileResponse(ROOT / "food-demo" / "index.html")
+
+    @api.get("/{platform}/")
+    def food_platform_index(platform: str):
+        if platform not in food_platforms:
+            raise HTTPException(404)
+        return FileResponse(ROOT / platform / "index.html")
+
+    @api.get("/{platform}/{asset}")
+    def food_platform_asset(platform: str, asset: str):
+        if platform not in food_platforms or asset not in food_pages:
+            raise HTTPException(404)
+        return FileResponse(ROOT / platform / asset)
 
     return api
 
