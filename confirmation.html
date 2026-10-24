@@ -1,6 +1,24 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Booking confirmed · AgentGuard Demo</title><link rel="stylesheet" href="styles.css"><script src="app.js"></script></head>
-<body><main><header><h1>Booking confirmed</h1></header><p class="banner">SIMULATED ORDER - no payment taken</p><section class="card" id="order"></section></main>
-<script>
-const s=AgentGuardDemo.bookingState(); const extras=[]; if(s.insurance)extras.push('Travel insurance'); if(s.meal)extras.push('Priority meal'); if(s.fee)extras.push('Convenience fee'); const total=s.ticket.price+(s.insurance?250:0)+(s.meal?100:0)+(s.fee?180:0); document.getElementById('order').innerHTML=`<p><strong>Order ID:</strong> order_${s.cartId}</p><p><strong>Ticket:</strong> ${s.ticket.name}, ${s.ticket.route}, ${s.ticket.date}</p><p><strong>Extras:</strong> ${extras.join(', ')||'None'}</p><p><strong>Total:</strong> Rs ${total.toLocaleString('en-IN')}</p>`;
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Booking confirmation · AgentGuard Demo</title><link rel="stylesheet" href="styles.css"></head>
+<body><main><header><a class="muted" href="ui/">← AgentGuard control room</a><h1 id="heading">Booking confirmation</h1></header>
+<p class="banner">SIMULATED ORDER — no payment taken</p><section class="card" id="order"></section>
+<a class="button" href="index.html">Start another booking</a></main><script>
+'use strict';
+const target = document.getElementById('order');
+try {
+  const value = JSON.parse(sessionStorage.getItem('agentguard:last-order'));
+  const expected = new URLSearchParams(location.search).get('order_id');
+  if (!value || value.order_id !== expected || !Number.isSafeInteger(value.total) || !Array.isArray(value.items)) throw new Error();
+  document.getElementById('heading').textContent = 'Booking confirmed';
+  for (const [label, text] of [['Order ID', value.order_id], ['Total charged (simulated)', 'Rs ' + value.total.toLocaleString('en-IN')]]) {
+    const row = document.createElement('p'); const strong = document.createElement('strong'); strong.textContent = label + ': ';
+    row.append(strong, document.createTextNode(text)); target.append(row);
+  }
+  for (const item of value.items) {
+    const row = document.createElement('p'); row.textContent = `${item.id}: Rs ${item.price.toLocaleString('en-IN')}`; target.append(row);
+  }
+} catch {
+  target.textContent = 'No confirmed order was found in this browser. Return to the booking page to place a simulated order.';
+}
 </script></body></html>

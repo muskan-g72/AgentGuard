@@ -1,91 +1,82 @@
-"""LLM-backed contract parsing with a deterministic demo fallback."""
+"""Draft contracts only; user confirmation is required before execution."""
 
 from __future__ import annotations
 
 import json
 import os
 from typing import Any
-from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from pydantic import ValidationError
-
-from .models import Contract
-
+from .models import Contract, Question, Requirements
 
 DEMO_CONTRACT = Contract(
-    route="Ludhiana-Delhi",
-    date="2026-10-25",
-    quantity=1,
-    max_total=1000,
-    allow_extras=False,
+    route={"from": "Ludhiana", "to": "Delhi"}, date="2026-10-26",
+    quantity=1, max_total=1000, allow_extras=False, source="fallback",
 )
 
-_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "route": {"type": "string"},
-        "date": {"type": "string"},
-        "quantity": {"type": "integer", "minimum": 1},
-        "max_total": {"type": "number", "minimum": 0},
-        "allow_extras": {"type": "boolean"},
-    },
-    "required": ["route", "date", "quantity", "max_total", "allow_extras"],
-}
+
+def _draft_schema() -> dict[str, Any]:
+    schema = Contract.model_json_schema()
+    # Structured Outputs requires every property, even nullable ones.
+    for obj in [schema, *schema.get("$defs", {}).values()]:
+        if obj.get("type") == "object":
+            obj["required"] = list(obj.get("properties", {}))
+            for prop in obj.get("properties", {}).values():
+                prop.pop("default", None)
+    return schema
 
 
 def _openai_json(text: str, api_key: str) -> dict[str, Any]:
-    """Request a strict JSON object from OpenAI's Responses API."""
-
     payload = {
         "model": os.getenv("GUARD_LLM_MODEL", "gpt-4.1-mini"),
         "temperature": 0,
         "input": [
-            {
-                "role": "system",
-                "content": "Extract a booking contract. Return only the requested JSON object.",
-            },
+            {"role": "system", "content": (
+                "Draft a booking contract from the user's text. Money is integer rupees. "
+                "Use null for unspecified requirements; do not infer preferences. "
+                "Use source parsed. Never authorize a purchase or operate a browser."
+            )},
             {"role": "user", "content": text},
         ],
-        "text": {
-            "format": {
-                "type": "json_schema",
-                "name": "booking_contract",
-                "strict": True,
-                "schema": _SCHEMA,
-            }
-        },
+        "text": {"format": {"type": "json_schema", "name": "booking_contract", "strict": True, "schema": _draft_schema()}},
     }
     request = Request(
-        "https://api.openai.com/v1/responses",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        method="POST",
+        "https://api.openai.com/v1/responses", data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST",
     )
-    with urlopen(request, timeout=10) as response:  # nosec B310: fixed HTTPS API endpoint
+    with urlopen(request, timeout=20) as response:
         body = json.loads(response.read().decode("utf-8"))
-    output_text = body.get("output_text")
-    if not isinstance(output_text, str):
-        raise ValueError("LLM response did not contain output_text")
-    parsed = json.loads(output_text)
-    if not isinstance(parsed, dict):
-        raise ValueError("LLM response was not a JSON object")
-    return parsed
+    if not isinstance(body, dict) or body.get("status") != "completed":
+        raise ValueError("Draft response did not complete")
+    chunks = [
+        content["text"]
+        for output in body.get("output", []) if output.get("type") == "message"
+        for content in output.get("content", []) if content.get("type") == "output_text"
+    ]
+    result = json.loads("".join(chunks))
+    if not isinstance(result, dict):
+        raise ValueError("Draft must be an object")
+    return result
 
 
 def parse_contract(text: str) -> Contract:
-    """Parse a natural-language request or return the known demo contract.
+    key = os.getenv("OPENAI_API_KEY")
+    if key:
+        try:
+            draft = _openai_json(text, key)
+            draft["source"] = "parsed"  # Provenance is assigned locally.
+            return Contract.model_validate(draft)
+        except Exception:
+            # Failure produces an explicitly labelled draft, never authorization.
+            pass
+    return DEMO_CONTRACT.model_copy(deep=True)
 
-    Network access is isolated here, never in :func:`guard.checker.check`. The
-    function uses ``OPENAI_API_KEY`` when available. Any missing key, API failure,
-    malformed response, or model-validation failure returns ``DEMO_CONTRACT``.
-    """
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return DEMO_CONTRACT
-    try:
-        return Contract.model_validate(_openai_json(text, api_key))
-    except (OSError, URLError, ValueError, ValidationError, json.JSONDecodeError):
-        return DEMO_CONTRACT
+def questions_for(contract: Contract) -> list[Question]:
+    wording = {
+        "refundable": "Do you need a refundable ticket?",
+        "seat_confirmed": "Do you need a confirmed seat?",
+        "baggage": "Do you need baggage included?",
+    }
+    return [Question(key=key, text=wording[key]) for key in Requirements.model_fields
+            if getattr(contract.requirements, key) is None]

@@ -1,95 +1,92 @@
-"""Deterministic, network-free cart authorization checks."""
+"""Deterministic, network-free cart authorization. Unknown is never allow."""
 
 from __future__ import annotations
 
-from decimal import Decimal
+from pydantic import ValidationError
 
 from .hidden_text import scan_hidden_text
-from .models import Cart, Contract, Decision, Item
+from .models import Cart, Contract, Decision
 
 
-def _money(amount: Decimal) -> str:
-    """Format an exact decimal amount for a user-facing reason."""
+def check(contract: Contract | dict, cart: Cart | dict, hidden_text: list[str] | None = None) -> Decision:
+    """Check known violations before missing information; scan both text sources."""
+    try:
+        contract = Contract.model_validate(contract)
+        cart = Cart.model_validate(cart)
+        if hidden_text is not None and (
+            not isinstance(hidden_text, list) or any(not isinstance(s, str) for s in hidden_text)
+        ):
+            raise ValueError("Invalid hidden text")
+    except (ValidationError, ValueError, TypeError):
+        return Decision(result="block", reasons=["Invalid contract or cart data."], flags=["invalid_input"])
 
-    return f"Rs {amount:,.2f}" if amount % 1 else f"Rs {amount:,.0f}"
-
-
-def _item_name(item: Item) -> str:
-    return {
-        "insurance": "Travel insurance",
-        "meal": "Priority meal",
-        "fee": "Convenience fee",
-        "ticket": "Ticket",
-    }[item.type]
-
-
-def _block(reasons: list[str], remove_item_ids: list[str] | None = None) -> Decision:
-    return Decision(result="block", reasons=reasons, remove_item_ids=remove_item_ids or [])
-
-
-def check(contract: Contract, cart: Cart, hidden_text: list[str] = []) -> Decision:
-    """Compare a staged cart with a contract in a fixed, explainable order.
-
-    This function is pure logic. It reads no environment variables and makes no
-    network calls. A hidden-text finding is considered only after the cart passes
-    every cart rule, so it cannot weaken a block.
-    """
-
-    # 1. Missing information.
+    violations: list[str] = []
     missing: list[str] = []
-    ticket_items = [item for item in cart.items if item.type == "ticket"]
-    if cart.total is None:
-        missing.append("The cart total is missing.")
-    if not ticket_items:
+    differing: list[str] = []
+    tickets = [item for item in cart.items if item.type == "ticket"]
+    ids = [item.id for item in cart.items]
+    if len(ids) != len(set(ids)):
+        violations.append("Cart item IDs must be unique.")
+        differing.append("items")
+    if not tickets:
         missing.append("The ticket item is missing.")
+    elif len(tickets) != contract.quantity:
+        violations.append(f"The cart has {len(tickets)} ticket item(s), but {contract.quantity} were authorized.")
+        differing.append("quantity")
+    for item in tickets:
+        if item.route is None:
+            missing.append(f"The route for ticket {item.id} is unknown.")
+        elif item.route != contract.route:
+            violations.append(f"Ticket {item.id} has a different route from the authorized booking.")
+            differing.append("route")
+        if item.date is None:
+            missing.append(f"The date for ticket {item.id} is unknown.")
+        elif item.date != contract.date:
+            violations.append(f"Ticket {item.id} is not for the authorized date {contract.date}.")
+            differing.append("date")
     if cart.passengers is None:
         missing.append("The passenger count is missing.")
-    if missing:
-        return Decision(result="ask", reasons=missing)
+    elif cart.passengers != contract.quantity:
+        violations.append(f"The passenger count {cart.passengers} differs from the authorized quantity {contract.quantity}.")
+        differing.append("passengers")
 
-    # 2. Ticket route and date.
-    matching_tickets = [
-        item for item in ticket_items if item.route == contract.route and item.date == contract.date
-    ]
-    if len(matching_tickets) != 1:
-        return _block([
-            f"The cart must contain exactly one ticket for {contract.route} on {contract.date}."
-        ])
+    extras = [item for item in cart.items if item.type != "ticket"] if not contract.allow_extras else []
+    names = {"insurance": "Travel insurance", "meal": "Priority meal", "fee": "Convenience fee"}
+    for item in extras:
+        violations.append(f"{names[item.type]} costs Rs {item.price:,} and was not authorized.")
+    if extras:
+        differing.append("items")
+    if cart.total is None:
+        missing.append("The cart total is missing.")
+    else:
+        if cart.total > contract.max_total:
+            violations.append(f"Total Rs {cart.total} is over your Rs {contract.max_total} budget.")
+            differing.append("total")
+        if cart.total != sum(item.price for item in cart.items):
+            violations.append("The cart total does not match the item total.")
+            differing.append("total")
 
-    # 3. Quantity.
-    if len(ticket_items) != contract.quantity:
-        return _block([
-            f"The cart has {len(ticket_items)} ticket item(s), but {contract.quantity} were authorized."
-        ])
+    for name in type(contract.requirements).model_fields:
+        required = getattr(contract.requirements, name)
+        actual = getattr(cart.attributes, name)
+        if required is None:
+            continue
+        if actual is None:
+            missing.append(f"The ticket's {name} attribute is unknown.")
+        elif actual != required:
+            violations.append(f"The ticket's {name} attribute must be {str(required).lower()}.")
+            differing.append(f"attributes.{name}")
 
-    # 4. Extras.
-    extras = [item for item in cart.items if item.type != "ticket"]
-    if not contract.allow_extras and extras:
-        return _block(
-            [f"{_item_name(item)} costs {_money(item.price)} and was not authorized." for item in extras],
-            [item.id for item in extras],
-        )
-
-    # 5. Budget.
-    assert cart.total is not None  # Guaranteed by the missing-information rule.
-    if cart.total > contract.max_total:
-        return _block([
-            f"The cart total of {_money(cart.total)} exceeds the authorized maximum of {_money(contract.max_total)}."
-        ])
-
-    # 6. Total consistency.
-    item_sum = sum((item.price for item in cart.items), start=Decimal("0"))
-    if cart.total != item_sum:
-        return _block([
-            f"The cart total of {_money(cart.total)} does not match the item total of {_money(item_sum)}."
-        ])
-
-    # 7. Suspicious hidden instructions can tighten an otherwise allow decision.
-    flags = scan_hidden_text(hidden_text)
-    if flags:
+    hidden_flags = scan_hidden_text(cart.hidden_text + (hidden_text or []))
+    flags = ["hidden_text"] if hidden_flags else []
+    if hidden_flags:
+        missing.append("The page contains hidden instruction-like text that needs review.")
+    if violations:
         return Decision(
-            result="ask",
-            reasons=["The page contains hidden instruction-like text that needs review."],
-            flags=flags,
+            result="block", reasons=violations + missing,
+            remove_item_ids=[item.id for item in extras], flags=flags,
+            differing_fields=list(dict.fromkeys(differing)),
         )
+    if missing:
+        return Decision(result="ask", reasons=missing, flags=flags)
     return Decision(result="allow", reasons=["The cart matches the authorized booking."])

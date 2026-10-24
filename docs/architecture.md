@@ -1,47 +1,75 @@
 # Architecture
 
-## Loop
+[Schema v2](schema.md) defines the shared wire messages, statuses, endpoints,
+receipt chain, and mandatory commit gate. It must be coordinated across branches.
 
-1. **Stage:** An agent opens `index.html`, chooses a train, and opens `checkout.html`. The query string carries the cart state.
-2. **Check:** `guard.checker.check()` compares a `Contract` and `Cart`. It checks missing fields, the ticket route and date, quantity, unauthorized extras, budget, item-total consistency, and hidden instruction-like text.
-3. **Fix:** Planned. The checker returns `remove_item_ids` for unauthorized extras, but no browser or orchestration code removes them or restages a cart.
-4. **Commit:** `checkout.html` sends the current query string to `confirmation.html` when the button with `id="confirm"` is pressed. The confirmation is simulated.
+## Execution
 
-## Shared JSON messages
+`app.main:create_app` creates the FastAPI application. Startup loads the SQLite
+store, receipt key, and replay or TinyFish driver; importing the module opens no
+database and performs no network requests. Environment configuration is described
+in the README.
 
-The following message shapes are the AgentGuard integration contract. `guard.models` validates these field names. The static browser site does not create or consume these JSON messages in code.
+1. Create a draft with `guard.contract_parser`. The optional LLM only drafts a
+   contract. A failed or unavailable parser returns a labelled fixed fallback.
+2. Ask up to three questions for unspecified preferences. All answers must be
+   supplied before confirmation. False and null retain their different meanings.
+3. User confirmation freezes the draft as the task contract and enters staging.
+4. `/run` claims the task atomically and stages a cart. `guard.checker` checks all
+   known violations, unknown facts, and hidden instructions with no I/O.
+5. A blocked cart can be repaired once if all removable extras are optional meal
+   or insurance items. Re-stage the repaired cart and check it again. Fees, wrong
+   dates, missing facts, and hidden text cannot be auto-authorized.
+6. Before entering allowed, prepare the outgoing payload and run
+   `guard.request_check` against the saved allowed cart hash. It compares cart ID,
+   item identities and prices, total, and extra form fields, and re-checks the
+   contract. Live runs without trusted request capture are blocked.
+7. Consume authorization in a SQLite transaction: status must be allowed, the
+   latest decision must allow, and the current canonical cart hash must equal
+   the saved hash. Contract and payload checks also apply. Rejection appends an
+   audit event and returns 409 before any commit transport call.
+8. Enter committing before calling the simulated merchant. A matching merchant
+   confirmation completes the task; exceptions or invalid totals fail it.
 
-```json
-{
-  "contract": {"route": "Ludhiana-Delhi", "date": "2026-10-25", "quantity": 1, "max_total": 1000, "allow_extras": false},
-  "cart": {"cart_id": "c_001", "items": [{"id": "t1", "type": "ticket", "price": 1000, "route": "Ludhiana-Delhi", "date": "2026-10-25"}, {"id": "x1", "type": "insurance", "price": 250}], "total": 1250, "passengers": 1},
-  "decision": {"result": "allow|block|ask", "reasons": ["..."], "remove_item_ids": ["x1"], "flags": ["..."]}
-}
-```
+Every status mutation uses the exact transition table in the schema. Invalid
+transitions are rejected and logged. SQLite `BEGIN IMMEDIATE` serializes gate
+consumption; a task cannot commit twice. A run interrupted during commit is not
+automatically retried, because the order outcome may be unknown.
 
-Item types are `ticket`, `insurance`, `meal`, and `fee`.
+`guard_enabled=false` skips automatic repair; mandatory checking remains active.
+An ask decision maps to a blocked task because the schema has no transition from
+checking back to awaiting_answers.
 
-## Files
+## Storage and proofs
 
-- `index.html` implements search results and the scenario-four recommendation.
-- `checkout.html` implements cart rows, extras, fee display, totals, the hidden scenario-five text, and confirmation navigation.
-- `confirmation.html` implements the simulated confirmation view.
-- `app.js` implements query-string state and ticket data.
-- `styles.css` implements layout and the off-screen hidden element.
-- `guard/models.py` defines `Contract`, `Item`, `Cart`, and `Decision` with Pydantic.
-- `guard/checker.py` implements the network-free deterministic check.
-- `guard/hidden_text.py` implements pattern matching for suspicious instruction text.
-- `guard/contract_parser.py` sends the user text to the OpenAI Responses API with temperature zero and strict JSON when `OPENAI_API_KEY` is available. It returns the fixed demo contract after API or validation failures.
-- `guard/demo.py` prints decisions for the local scenarios.
-- `tests/test_scenarios.py` tests the scenario decisions and check timing.
+Tasks and events are separate SQLite tables. State changes and their audit events
+are committed together. Audit events include drafts, answers, the confirmed
+contract, staged/fixed carts, decisions, gate failures, status changes, the outgoing
+payload, and the final order. Failure logs omit vendor response bodies and secrets.
 
-## Simulated behavior
+For a complete validated cart, canonical JSON is compact, sorted-key UTF-8 with no
+non-finite numbers. The cart hash is SHA256 of those bytes. Event bodies contain
+only `id`, `ts`, `type`, and `payload`; the hash is SHA256 of the previous hex hash
+concatenated with that canonical body. The first previous hash is 64 zeros.
+The event's `prev_hash` and `hash` metadata are not recursively included.
 
-Orders are simulated. No payment is taken. There is no payment form and the site does not collect personal data. The cart is not persisted on a server; it is represented in the URL.
+HMAC-SHA256 signs the latest event hash at mutation time using `RECEIPT_KEY`.
+Receipt reads do not re-sign database contents. Verification checks sequence,
+hash links, signature, and the envelope's task ID, contract, and final order.
+Receipt signatures are demo-grade, not production security.
 
-## Could not verify from the code
+## Boundaries
 
-- A TinyFish Agent API integration.
-- The run-one, run-two, run-three orchestration.
-- A deployed public URL.
-- Python 3.11 compatibility on this machine.
+- `guard/models.py`: strict schema validation and integer rupees.
+- `guard/checker.py`, `guard/request_check.py`: pure deterministic checks.
+- `guard/contract_parser.py`: draft-only optional OpenAI API boundary.
+- `app/drivers.py`: deterministic replay and TinyFish public-site staging/repair.
+- `app/store.py`: SQLite transactions, transition table, chain and signature.
+- `app/service.py`: question/confirmation lifecycle, bounded repair, commit gate.
+- `app/main.py`: endpoint validation, SSE status streaming, receipts and health.
+- Static HTML/JS: separate URL-based booking fixture with simulated confirmation.
+
+The public TinyFish adapter cannot safely commit until trusted request interception
+exists. It fails closed with `page_unverified`. The static pages do not enforce
+the API gate. No existing `/stage` implementation was available to compare with
+other branches; the new read-only route's request/response is documented in README.

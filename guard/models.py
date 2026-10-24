@@ -1,54 +1,100 @@
-"""Data models for the AgentGuard shared JSON messages."""
+"""Strict JSON models implementing docs/schema.md (Schema v2)."""
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Literal
+from datetime import date as Date
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+Money = Annotated[int, Field(strict=True, ge=0)]
+Count = Annotated[int, Field(strict=True, ge=1)]
+Identifier = Annotated[str, Field(min_length=1)]
+Status = Literal[
+    "awaiting_answers", "awaiting_confirmation", "staging", "checking",
+    "blocked", "fixing", "allowed", "committing", "done", "failed",
+]
 
 
-class Contract(BaseModel):
-    """The user's authorization for a booking."""
+class Message(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", strict=True, populate_by_name=True,
+        serialize_by_alias=True, revalidate_instances="always",
+    )
 
-    model_config = ConfigDict(extra="forbid")
 
-    route: str
+class Route(Message):
+    from_: Identifier = Field(alias="from")
+    to: Identifier
+
+
+class Requirements(Message):
+    refundable: bool | None = None
+    seat_confirmed: bool | None = None
+    baggage: bool | None = None
+
+
+def _iso_date(value: str) -> str:
+    if Date.fromisoformat(value).isoformat() != value:
+        raise ValueError("Use an ISO date in YYYY-MM-DD format")
+    return value
+
+
+class Contract(Message):
+    route: Route
     date: str
-    quantity: int = Field(ge=1)
-    max_total: Decimal = Field(ge=0)
+    quantity: Count
+    max_total: Money
     allow_extras: bool
+    requirements: Requirements = Field(default_factory=Requirements)
+    source: Literal["parsed", "fallback"]
+
+    _date = field_validator("date")(_iso_date)
 
 
-class Item(BaseModel):
-    """One staged cart item."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
+class Item(Message):
+    id: Identifier
     type: Literal["ticket", "insurance", "meal", "fee"]
-    price: Decimal = Field(ge=0)
-    route: str | None = None
+    price: Money
+    route: Route | None = None
     date: str | None = None
 
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str | None) -> str | None:
+        return _iso_date(value) if value is not None else None
 
-class Cart(BaseModel):
-    """The cart inspected before confirmation."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    cart_id: str
+class Cart(Message):
+    cart_id: Identifier
     items: list[Item]
-    total: Decimal | None
-    passengers: int | None = Field(default=None, ge=1)
+    total: Money | None
+    passengers: Count | None = None
+    attributes: Requirements = Field(default_factory=Requirements)
+    hidden_text: list[str] = Field(default_factory=list)
 
 
-class Decision(BaseModel):
-    """A checker response using the shared decision JSON field names."""
+class OrderItem(Message):
+    id: Identifier
+    price: Money
 
-    model_config = ConfigDict(extra="forbid")
 
+class OrderRequest(Message):
+    cart_id: Identifier
+    items: list[OrderItem]
+    total: Money
+    fields: dict[str, Any] = Field(default_factory=dict)
+
+
+class Decision(Message):
     result: Literal["allow", "block", "ask"]
     reasons: list[str] = Field(default_factory=list)
     remove_item_ids: list[str] = Field(default_factory=list)
     flags: list[str] = Field(default_factory=list)
+    differing_fields: list[str] = Field(default_factory=list)
+
+
+class Question(Message):
+    key: Literal["refundable", "seat_confirmed", "baggage"]
+    text: str
+    options: list[str] = Field(default_factory=lambda: ["yes", "no", "don't care"])

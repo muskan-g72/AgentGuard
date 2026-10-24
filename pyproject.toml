@@ -7,7 +7,7 @@ name = "guard"
 version = "0.1.0"
 description = "Pure cart authorization checks for AgentGuard"
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2,<3"]
+dependencies = ["pydantic>=2.11,<3", "fastapi>=0.115,<1", "uvicorn>=0.30,<1", "httpx>=0.27,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
@@ -16,4 +16,4 @@ dev = ["pytest>=8,<9"]
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["guard*"]
+include = ["guard*", "app*"]
