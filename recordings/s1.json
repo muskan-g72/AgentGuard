@@ -1,0 +1,35 @@
+{
+  "run_id": "0074f987-522f-49ee-a0d2-665e09b735da",
+  "status": "COMPLETED",
+  "started_at": "2026-10-24T09:02:19.351Z",
+  "finished_at": "2026-10-24T09:02:46.718Z",
+  "num_of_steps": 7,
+  "result": {
+    "cart": {
+      "cart_id": "c_001",
+      "items": [
+        {
+          "id": "T1",
+          "type": "ticket",
+          "price": 1000,
+          "route": "Ludhiana-Delhi",
+          "date": "2026-10-25"
+        },
+        {
+          "id": "travel-insurance",
+          "type": "insurance",
+          "price": 250
+        },
+        {
+          "id": "priority-meal",
+          "type": "meal",
+          "price": 100
+        }
+      ],
+      "total": 1000,
+      "passengers": 1
+    },
+    "hidden_text": []
+  },
+  "error": null
+}
