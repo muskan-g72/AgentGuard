@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
-from app.tasks import InvalidTransitionError, task_events, transition
+from app.tasks import ConfirmationGateError, InvalidTransitionError, require_confirmed, task_events, transition
 
 
 @pytest.fixture
@@ -67,3 +67,24 @@ def test_unconfirmed_task_cannot_transition_to_staging(client):
     task_id = create(client)["task_id"]
     with pytest.raises(InvalidTransitionError):
         transition(task_id, "staging")
+
+
+def test_confirmation_gate_requires_confirmed_contract(client):
+    task_id = create(client)["task_id"]
+    with pytest.raises(ConfirmationGateError):
+        require_confirmed(client.get(f"/tasks/{task_id}").json())
+    assert client.post(f"/tasks/{task_id}/confirm", json={}).status_code == 200
+    require_confirmed(client.get(f"/tasks/{task_id}").json())
+
+
+def test_contract_change_clears_confirmation(client):
+    task_id = create(client)["task_id"]
+    assert client.post(f"/tasks/{task_id}/confirm", json={}).status_code == 200
+    contract = client.get(f"/tasks/{task_id}").json()["contract"]
+    contract["max_total"] = 999
+    assert client.post(f"/tasks/{task_id}/confirm", json={"contract": contract}).status_code == 200
+    task = client.get(f"/tasks/{task_id}").json()
+    assert task["contract_confirmed"] is False
+    assert any(event["type"] == "contract_unconfirmed" for event in task["audit_events"])
+    with pytest.raises(ConfirmationGateError):
+        require_confirmed(task)

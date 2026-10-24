@@ -140,7 +140,10 @@ def confirm(task_id: str, request: ConfirmRequest) -> dict:
         audit(task_id, "contract_rejected", {"error": str(error)})
         raise HTTPException(status_code=422, detail=f"Invalid contract: {error}") from error
     normalized = contract.model_dump(mode="json", by_alias=True)
-    update_contract(task_id, normalized)
+    changed_after_confirmation = task["contract_confirmed"] and task["contract"] != normalized
+    update_contract(task_id, normalized, confirmed=True)
+    if changed_after_confirmation:
+        return {"status": "awaiting_confirmation"}
     audit(task_id, "contract_confirmed", {"contract": normalized})
     return {"status": task["status"]}
 

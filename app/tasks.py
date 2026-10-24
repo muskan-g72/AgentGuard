@@ -33,6 +33,10 @@ class InvalidTransitionError(ValueError):
     pass
 
 
+class ConfirmationGateError(ValueError):
+    pass
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -46,8 +50,11 @@ def connection() -> sqlite3.Connection:
         id TEXT PRIMARY KEY, sentence TEXT NOT NULL, scenario TEXT NOT NULL,
         contract_json TEXT NOT NULL, guard_enabled INTEGER NOT NULL, status TEXT NOT NULL,
         cart_json TEXT, decision_json TEXT, cart_hash TEXT, fix_attempts INTEGER NOT NULL,
-        created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"""
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL, contract_confirmed INTEGER NOT NULL DEFAULT 0)"""
     )
+    columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
+    if "contract_confirmed" not in columns:
+        db.execute("ALTER TABLE tasks ADD COLUMN contract_confirmed INTEGER NOT NULL DEFAULT 0")
     db.execute(
         """CREATE TABLE IF NOT EXISTS audit_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL, ts TEXT NOT NULL,
@@ -71,8 +78,8 @@ def create_task(sentence: str, scenario: str, contract: dict[str, Any], guard_en
     with connection() as db:
         db.execute(
             """INSERT INTO tasks (id, sentence, scenario, contract_json, guard_enabled, status,
-            cart_json, decision_json, cart_hash, fix_attempts, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0, ?, ?)""",
+            cart_json, decision_json, cart_hash, fix_attempts, created_at, updated_at, contract_confirmed)
+            VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0, ?, ?, 0)""",
             (task_id, sentence, scenario, json.dumps(contract), int(guard_enabled), status, now, now),
         )
     audit(task_id, "task_created", {"status": status, "scenario": scenario})
@@ -89,6 +96,7 @@ def get_task(task_id: str) -> dict[str, Any]:
         value = task.pop(key)
         task[key.removesuffix("_json")] = json.loads(value) if value is not None else None
     task["guard_enabled"] = bool(task["guard_enabled"])
+    task["contract_confirmed"] = bool(task["contract_confirmed"])
     return task
 
 
@@ -117,6 +125,15 @@ def transition(task_id: str, new_status: str) -> dict[str, Any]:
     return get_task(task_id)
 
 
-def update_contract(task_id: str, contract: dict[str, Any]) -> None:
+def update_contract(task_id: str, contract: dict[str, Any], *, confirmed: bool = False) -> None:
+    task = get_task(task_id)
+    changed_after_confirmation = task["contract_confirmed"] and task["contract"] != contract
     with connection() as db:
-        db.execute("UPDATE tasks SET contract_json = ?, updated_at = ? WHERE id = ?", (json.dumps(contract), _now(), task_id))
+        db.execute("UPDATE tasks SET contract_json = ?, contract_confirmed = ?, updated_at = ? WHERE id = ?", (json.dumps(contract), int(confirmed and not changed_after_confirmation), _now(), task_id))
+    if changed_after_confirmation:
+        audit(task_id, "contract_unconfirmed", {"reason": "The stored contract changed."})
+
+
+def require_confirmed(task: dict[str, Any]) -> None:
+    if task["status"] != "awaiting_confirmation" or not task["contract_confirmed"]:
+        raise ConfirmationGateError("Task requires a confirmed contract before staging.")
