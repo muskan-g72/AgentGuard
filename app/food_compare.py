@@ -23,6 +23,9 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from guard.food_models import FoodContract, FoodOption, StagedFoodCart
+from guard.food_rank import effective_price as guarded_effective_price
+from guard.food_rank import rank as guard_rank
+from guard.food_rank import taste_score as guarded_taste_score
 
 from .tinyfish_client import TinyFishError, cancel_agent_run, get_agent_run, start_agent_async
 
@@ -184,6 +187,15 @@ def _parse_staged_cart(raw: object) -> StagedFoodCart:
     return StagedFoodCart.model_validate(_result_object(raw).get("cart"))
 
 
+def _with_coupon_evidence(staged: StagedFoodCart, option: FoodOption) -> StagedFoodCart:
+    """Bind a staged coupon code to the selected option's visible coupon data."""
+
+    if staged.coupon_applied is None:
+        return staged
+    coupon = next((value for value in option.coupons if value.code == staged.coupon_applied), None)
+    return staged.model_copy(update={"coupon_details": coupon})
+
+
 def _wait_for_result(run_id: str, *, timeout_seconds: int) -> dict:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
@@ -259,35 +271,19 @@ def coupon_discount(option: FoodOption) -> int:
 
 
 def effective_price(option: FoodOption) -> int:
-    return option.item_price + option.fees.delivery + option.fees.platform + option.fees.packaging - coupon_discount(option)
+    return guarded_effective_price(option)
 
 
 def taste_score(option: FoodOption) -> float:
-    return (option.rating * option.rating_count + 3.8 * 50) / (option.rating_count + 50)
+    return guarded_taste_score(option)
 
 
 def rank_options(options: list[FoodOption], contract: FoodContract) -> RankingResult:
-    accepted: list[FoodOption] = []
-    rejected: list[RejectedOption] = []
-    for option in options:
-        reasons: list[str] = []
-        if contract.diet == "veg" and not option.veg:
-            reasons.append("not vegetarian")
-        if option.rating < contract.min_rating:
-            reasons.append(f"rating {option.rating} is below {contract.min_rating}")
-        if option.eta_minutes > contract.max_eta_minutes:
-            reasons.append(f"ETA {option.eta_minutes} exceeds {contract.max_eta_minutes} minutes")
-        if effective_price(option) > contract.max_total:
-            reasons.append(f"effective price Rs {effective_price(option)} exceeds Rs {contract.max_total}")
-        if reasons:
-            rejected.append(RejectedOption(option, reasons))
-        else:
-            accepted.append(option)
-    if contract.priority == "price":
-        accepted.sort(key=lambda option: (effective_price(option), -taste_score(option), option.platform, option.restaurant, option.dish))
-    else:
-        accepted.sort(key=lambda option: (-taste_score(option), effective_price(option), option.platform, option.restaurant, option.dish))
-    return RankingResult(accepted, rejected)
+    result = guard_rank(contract, options)
+    return RankingResult(
+        ranked=[entry["option"] for entry in result["ranked"]],
+        rejected=[RejectedOption(entry["option"], entry["reasons"]) for entry in result["dropped"]],
+    )
 
 
 def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> StagedFoodCart:
@@ -298,7 +294,8 @@ def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds:
     if os.getenv("REPLAY") == "1":
         fixture = _load_fixture(platform)
         try:
-            return StagedFoodCart.model_validate(fixture["staged_carts"][scenario])
+            staged = StagedFoodCart.model_validate(fixture["staged_carts"][scenario])
+            return _with_coupon_evidence(staged, option)
         except (KeyError, ValidationError) as error:
             raise FoodCompareError(f"Food fixture has no valid staged {scenario!r} cart for {platform}.") from error
 
@@ -311,7 +308,7 @@ def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds:
                 raise FoodCompareError("TinyFish did not return a run_id for food staging.")
             raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
             _save_live(platform, raw, "stage")
-            return _parse_staged_cart(raw)
+            return _with_coupon_evidence(_parse_staged_cart(raw), option)
         except (FoodCompareError, TinyFishError, ValidationError, json.JSONDecodeError) as error:
             if retry:
                 raise FoodCompareError(f"Food staging failed after one JSON retry: {first_error} | {error}") from error
