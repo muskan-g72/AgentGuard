@@ -94,6 +94,19 @@ def test_quantity_hidden_text_and_missing_total_fail_closed_in_rule_order(monkey
     assert missing.reasons == ["The cart total is missing."]
 
 
+def test_non_veg_budget_and_unexplained_total_each_block(monkeypatch):
+    winner = named(options(monkeypatch), "FoodHub", "Spice Route")
+    clean = stage_winner(winner.model_copy(update={"url": winner.url + "?scenario=clean"}), contract())
+    non_veg = clean.model_copy(update={"items": [
+        clean.items[0].model_copy(update={"veg": False}), clean.items[1],
+    ]})
+    assert check_food_cart(contract(), non_veg, 280, []).reasons == ["Dish dish_spice_route is not vegetarian."]
+    over_budget = clean.model_copy(update={"total": 301})
+    assert "exceeds the authorized maximum" in check_food_cart(contract(), over_budget, 280, []).reasons[0]
+    unexplained = clean.model_copy(update={"total": 280})
+    assert "unexplained difference" in check_food_cart(contract(), unexplained, 279, []).reasons[0]
+
+
 def test_ineligible_applied_coupon_is_blocked_after_total_reconciliation(monkeypatch):
     winner = named(options(monkeypatch), "FoodHub", "Spice Route")
     clean = stage_winner(winner.model_copy(update={"url": winner.url + "?scenario=clean"}), contract())
