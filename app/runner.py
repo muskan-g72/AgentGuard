@@ -38,7 +38,8 @@ def run_task(task_id: str, browser) -> None:
             if decision['result']=='allow': transition(task_id,'allowed'); commit_task(task_id,browser); return
             transition(task_id,'blocked')
             if decision['result']=='ask': return
-            if get_task(task_id)['fix_attempts'] >= 2: transition(task_id,'failed'); return
+            if get_task(task_id)['fix_attempts'] >= 2:
+                audit(task_id,'run_failed',{'reasons':decision['reasons']}); transition(task_id,'failed'); return
             transition(task_id,'fixing'); attempts=increment_fix_attempts(task_id); audit(task_id,'fix_started',{'remove_item_ids':decision['remove_item_ids'],'attempt':attempts}); browser.fix_cart('',decision['remove_item_ids']); audit(task_id,'fix_result',{'remove_item_ids':decision['remove_item_ids']}); transition(task_id,'checking')
     except Exception as error:
         task=get_task(task_id)
