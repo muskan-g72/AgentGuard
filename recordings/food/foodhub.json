@@ -1,0 +1,13 @@
+{
+  "fixture": true,
+  "fixture_note": "Demo fixture, not a live TinyFish recording.",
+  "options": [
+    {"platform": "FoodHub", "restaurant": "Spice Route", "dish": "Paneer Butter Masala combo", "veg": true, "item_price": 260, "rating": 4.4, "rating_count": 1200, "eta_minutes": 35, "fees": {"delivery": 0, "platform": 5, "packaging": 15}, "coupons": [{"code": "FIRST50", "type": "percent", "value": 50, "max_discount": 100, "min_order": 300}], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/foodhub/spice-route-paneer"},
+    {"platform": "FoodHub", "restaurant": "Biryani Hub", "dish": "Chicken Biryani", "veg": false, "item_price": 220, "rating": 4.5, "rating_count": 900, "eta_minutes": 40, "fees": {"delivery": 0, "platform": 5, "packaging": 10}, "coupons": [], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/foodhub/biryani-hub-chicken"},
+    {"platform": "FoodHub", "restaurant": "Roll Point", "dish": "Paneer Kathi Roll", "veg": true, "item_price": 150, "rating": 3.9, "rating_count": 210, "eta_minutes": 25, "fees": {"delivery": 15, "platform": 5, "packaging": 5}, "coupons": [], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/foodhub/roll-point-paneer"}
+  ],
+  "staged_carts": {
+    "clean": {"cart_id": "foodhub_spice_clean", "items": [{"id": "dish_spice_route", "type": "dish", "price": 260}, {"id": "fees", "type": "fee", "price": 20}], "coupon_applied": null, "quantity": 1, "total": 280, "eta_minutes": 35, "veg": true, "hidden_text": []},
+    "extras": {"cart_id": "foodhub_spice_extras", "items": [{"id": "dish_spice_route", "type": "dish", "price": 260}, {"id": "fees", "type": "fee", "price": 20}, {"id": "tip", "type": "tip", "price": 30}, {"id": "donation", "type": "donation", "price": 10}], "coupon_applied": null, "quantity": 1, "total": 320, "eta_minutes": 35, "veg": true, "hidden_text": []}
+  }
+}
