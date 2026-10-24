@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AgentGuard Demo Booking</title><link rel="stylesheet" href="styles.css"><script src="app.js"></script></head>
-<body><main><header><h1>Demo train booking</h1><p class="muted">All bookings are simulated. No payment is taken.</p></header>
+<body><main><header><a class="muted" href="ui/">← AgentGuard control room</a><h1>Demo train booking</h1><p class="muted">All bookings are simulated. No payment is taken.</p><label for="scenario-select">Demo scenario</label><select id="scenario-select" style="font:inherit;padding:12px;width:100%;margin-top:10px;border:1px solid #aeb9c5;border-radius:6px"></select></header>
 <section class="card"><form id="search"><div class="search-grid"><label>From<input id="from" name="from" type="text" value="Ludhiana" required maxlength="100"></label><label>To<input id="to" name="to" type="text" value="Delhi" required maxlength="100"></label><label>Date<input id="date" name="date" type="date" value="2026-10-25" required></label><label>Passengers<input id="passengers" name="passengers" type="number" value="1" min="1" max="100" step="1" required></label></div><button type="submit">Search trains</button><p class="muted">Ticket prices are per passenger. Extras are charged once per booking.</p></form></section>
 <section id="results" aria-label="Train results"></section></main>
 <script>
@@ -23,6 +23,17 @@ form.addEventListener('submit', event => {
   Object.entries({ from, to, date: form.elements.date.value,
     passengers: form.elements.passengers.value }).forEach(([key, value]) => p.set(key, value));
   p.delete('ticket');
+  location.search = p.toString();
+});
+const selector = document.getElementById('scenario-select');
+Object.entries(AgentGuardDemo.scenarios).forEach(([id, value]) => { const option = document.createElement('option'); option.value=id; option.textContent=id.toUpperCase()+': '+value.name; option.selected=id===scenario; selector.append(option); });
+selector.addEventListener('change', () => {
+  if (['s7', 's8'].includes(selector.value)) {
+    location.href = 'ui/?scenario=' + selector.value;
+    return;
+  }
+  const p = new URLSearchParams(params);
+  p.set('scenario', selector.value); p.delete('ticket');
   location.search = p.toString();
 });
 const results = document.getElementById('results');

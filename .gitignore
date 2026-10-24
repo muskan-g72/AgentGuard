@@ -10,3 +10,7 @@ recordings/live/
 test-results/
 .vercel/
 deploy/generated/
+.tools/
+/AgentGuard/
+/dist/
+ui/test-results/
