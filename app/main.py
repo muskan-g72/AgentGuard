@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import os
 import time
+from urllib.parse import urlparse
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, HttpUrl
@@ -25,6 +26,11 @@ from .tasks import (
     transition,
     update_contract,
 )
+from .tasks import require_confirmed
+from .browser import TinyFishBrowser
+from .runner import run_task
+
+BROWSER_FACTORY = TinyFishBrowser
 
 try:
     from guard.checker import check
@@ -146,6 +152,19 @@ def confirm(task_id: str, request: ConfirmRequest) -> dict:
         return {"status": "awaiting_confirmation"}
     audit(task_id, "contract_confirmed", {"contract": normalized})
     return {"status": task["status"]}
+
+@app.post("/tasks/{task_id}/run", status_code=202)
+def run(task_id: str, background_tasks: BackgroundTasks) -> dict:
+    task = _task_or_404(task_id)
+    try: require_confirmed(task)
+    except Exception:
+        audit(task_id,"run_rejected",{"reason":"confirmed contract required"}); raise HTTPException(409,"Task has not been confirmed.")
+    base=os.getenv("DEMO_SITE_BASE","https://demo-booking-tau.vercel.app"); host=urlparse(base).hostname or ""
+    allowed=os.getenv("ALLOWED_CART_ORIGINS","demo-booking-tau.vercel.app").split(",")
+    if host not in allowed and not (os.getenv("REPLAY")=="1" and host in {"localhost","127.0.0.1"}):
+        audit(task_id,"run_failed",{"reason":"cart origin rejected","host":host}); transition(task_id,"failed"); raise HTTPException(400,"Cart origin rejected.")
+    background_tasks.add_task(run_task,task_id,BROWSER_FACTORY())
+    return {"status":"accepted"}
 
 
 @app.get("/tasks/{task_id}")
