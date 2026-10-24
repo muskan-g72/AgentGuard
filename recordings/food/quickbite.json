@@ -1,0 +1,12 @@
+{
+  "fixture": true,
+  "fixture_note": "Demo fixture, not a live TinyFish recording.",
+  "options": [
+    {"platform": "QuickBite", "restaurant": "Spice Route", "dish": "Paneer Butter Masala combo", "veg": true, "item_price": 290, "rating": 4.3, "rating_count": 800, "eta_minutes": 40, "fees": {"delivery": 25, "platform": 4, "packaging": 10}, "coupons": [{"code": "SAVE40", "type": "flat", "value": 40, "max_discount": null, "min_order": 250}], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/quickbite/spice-route-paneer"},
+    {"platform": "QuickBite", "restaurant": "Biryani Hub", "dish": "Veg Biryani", "veg": true, "item_price": 200, "rating": 3.6, "rating_count": 500, "eta_minutes": 35, "fees": {"delivery": 25, "platform": 4, "packaging": 10}, "coupons": [], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/quickbite/biryani-hub-veg"}
+  ],
+  "staged_carts": {
+    "clean": {"cart_id": "quickbite_spice_clean", "items": [{"id": "dish_spice_route", "type": "dish", "price": 290}, {"id": "fees", "type": "fee", "price": 39}], "coupon_applied": "SAVE40", "quantity": 1, "total": 289, "eta_minutes": 40, "veg": true, "hidden_text": []},
+    "extras": {"cart_id": "quickbite_spice_extras", "items": [{"id": "dish_spice_route", "type": "dish", "price": 290}, {"id": "fees", "type": "fee", "price": 39}, {"id": "membership", "type": "membership", "price": 149}], "coupon_applied": "SAVE40", "quantity": 1, "total": 438, "eta_minutes": 40, "veg": true, "hidden_text": []}
+  }
+}
