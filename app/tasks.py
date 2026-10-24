@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -132,6 +133,43 @@ def update_contract(task_id: str, contract: dict[str, Any], *, confirmed: bool =
         db.execute("UPDATE tasks SET contract_json = ?, contract_confirmed = ?, updated_at = ? WHERE id = ?", (json.dumps(contract), int(confirmed and not changed_after_confirmation), _now(), task_id))
     if changed_after_confirmation:
         audit(task_id, "contract_unconfirmed", {"reason": "The stored contract changed."})
+
+
+def canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def update_task(task_id: str, **fields: Any) -> None:
+    allowed = {"cart_json", "decision_json", "cart_hash", "fix_attempts", "status", "contract_json", "contract_confirmed"}
+    unknown = set(fields) - allowed
+    if unknown:
+        raise ValueError(f"Unsupported task fields: {sorted(unknown)}")
+    if not fields:
+        return
+    fields["updated_at"] = _now()
+    assignments = ", ".join(f"{key} = ?" for key in fields)
+    with connection() as db:
+        db.execute(f"UPDATE tasks SET {assignments} WHERE id = ?", (*fields.values(), task_id))
+
+
+def save_cart(task_id: str, cart: Any) -> str:
+    value = cart.model_dump(mode="json") if hasattr(cart, "model_dump") else cart
+    encoded = canonical_json(value)
+    digest = hashlib.sha256(encoded.encode()).hexdigest()
+    update_task(task_id, cart_json=encoded, cart_hash=digest)
+    return digest
+
+
+def save_decision(task_id: str, decision: Any) -> None:
+    value = decision.model_dump(mode="json") if hasattr(decision, "model_dump") else decision
+    update_task(task_id, decision_json=canonical_json(value))
+
+
+def increment_fix_attempts(task_id: str) -> int:
+    task = get_task(task_id)
+    attempts = task["fix_attempts"] + 1
+    update_task(task_id, fix_attempts=attempts)
+    return attempts
 
 
 def require_confirmed(task: dict[str, Any]) -> None:
