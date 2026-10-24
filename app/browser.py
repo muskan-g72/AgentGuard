@@ -35,9 +35,9 @@ class TinyFishBrowser:
 
 
 class FakeBrowser:
-    def __init__(self, *, carts: list[Cart] = [], orders: list[dict] = []): self.carts, self.orders, self.commit_calls = list(carts), list(orders), 0
-    def stage_cart(self, url: str, contract: Contract) -> Cart: return self.carts.pop(0)
-    def fix_cart(self, url: str, remove_item_ids: list[str]) -> Cart: return self.carts.pop(0)
+    def __init__(self, *, carts: list[Cart] = [], orders: list[dict] = []): self.carts, self.orders, self.commit_calls, self.stage_calls, self.fix_calls = list(carts), list(orders), 0, 0, 0
+    def stage_cart(self, url: str, contract: Contract) -> Cart: self.stage_calls += 1; return self.carts.pop(0)
+    def fix_cart(self, url: str, remove_item_ids: list[str]) -> Cart: self.fix_calls += 1; return self.carts[0]
     def commit_order(self, url: str) -> dict:
         self.commit_calls += 1
         return self.orders.pop(0)
