@@ -29,3 +29,6 @@ def test_cart_swap_refuses_commit():
 def test_decision_swap_refuses_commit():
  from tests.test_commit_gate import prepared
  t=prepared(); b=FakeBrowser(); update_task(t,decision_json='{"result":"block"}'); assert not commit_task(t,b); assert b.commit_calls==0 and 'decision.result' in task_events(t)[-1]['payload']['reason']
+def test_realistic_cart_swap_refuses_commit():
+ from tests.test_commit_gate import prepared
+ t=prepared(); b=FakeBrowser(); cart=SCENARIOS['s1'][0].model_dump(mode='json'); cart['items'][0]['price']=1350; cart['items'].append({'id':'x1','type':'insurance','price':250,'route':None,'date':None}); cart['total']=1600; update_task(t,cart_json=__import__('json').dumps(cart)); assert not commit_task(t,b); assert b.commit_calls==0 and get_task(t)['status']!='done' and 'hash' in task_events(t)[-1]['payload']['reason']
