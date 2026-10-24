@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#163c35">
+  <meta name="description" content="See AgentGuard catch hidden extras, verify an order, and produce a proof receipt. No real payments.">
+  <title>AgentGuard · Your agent. Your rules.</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
+  <script src="../app.js"></script><script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to demo</a>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="AgentGuard home"><img src="icon.svg" width="38" height="42" alt=""><span>Agent<span class="brand-light">Guard</span><small>THE FINAL SAY IS YOURS</small></span></a>
+      <div class="top-actions"><span id="source-pill" class="pill"><span class="dot"></span>Mock replay</span>
+        <button id="reset" class="button subtle" type="button" aria-label="Reset demo" title="Reset demo">↺ <span>Reset</span></button>
+        <button id="run-demo" class="button lime" type="button"><span aria-hidden="true">▶</span> Run demo</button></div>
+    </header>
+    <section class="intro" aria-label="About AgentGuard">
+      <div><p class="eyebrow">A BODYGUARD FOR AI SHOPPING AGENTS</p><h1>Let the agent book.<br><span>Keep the final say.</span></h1>
+      <p class="intro-copy">Hidden extras. Changed requests. Quiet compromises. <br>See what gets caught before an order goes through.</p></div>
+      <div class="promise"><div class="promise-symbol" aria-hidden="true">✓</div><div><strong>Your brief becomes the boundary.</strong><p>Ask what’s missing. Check what’s sent.<br>Keep a receipt that proves it.</p></div><span class="promise-tag">SIMULATED PAYMENTS ONLY</span></div>
+    </section>
+    <div id="mode-banner" class="mode-banner"><span class="dot"></span><span id="mode-text">Connecting to the demo…</span>
+      <details id="connection"><summary>Data source <span aria-hidden="true">⌄</span></summary><div class="connection-menu"><label for="data-source">Run against</label><select id="data-source"><option value="mock">Mock replay · ready now</option><option value="api">Connected task API</option></select><p>API mode uses a server-side proxy. No API keys belong in this page.</p></div></details>
+    </div>
+    <nav class="steps" aria-label="Demo progress">
+      <button type="button" data-step="0" class="step active" aria-current="step"><span>01</span><div>Set the brief<small>Your rules</small></div></button>
+      <button type="button" data-step="1" class="step" disabled><span>02</span><div>Make it clear<small>Questions & contract</small></div></button>
+      <button type="button" data-step="2" class="step" disabled><span>03</span><div>Watch the guard<small>Check & repair</small></div></button>
+      <button type="button" data-step="3" class="step" disabled><span>04</span><div>See the proof<small>Your receipt</small></div></button>
+    </nav>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div id="error" class="error-banner" role="alert" hidden><div><strong>We stopped here.</strong><p id="error-text"></p></div><button id="retry" class="button outline" type="button">Try again</button></div>
+    <main id="workspace" tabindex="-1" aria-busy="false"></main>
+    <footer><span><span class="footer-mark" aria-hidden="true">◇</span> AgentGuard <span class="muted">/ a little trust, a lot of proof</span></span><a href="../index.html">Open booking sandbox ↗</a><span>Integer rupees. Zero real payments.</span></footer>
+  </div>
+</body>
+</html>
