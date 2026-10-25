@@ -168,11 +168,12 @@ class Store:
         return task
 
     def create_food_task(self, contract: FoodContract, recommended: FoodOption | None, *,
-                         ranked: list[FoodOption], dropped: list[dict], guard_off: bool = False):
+                         ranked: list[FoodOption], dropped: list[dict], guard_off: bool = False,
+                         scenario: str | None = None):
         """Persist food comparison evidence in the same append-only task event chain."""
         task = {
             "task_id": str(uuid4()), "kind": "food", "sentence": "Food comparison",
-            "scenario": "food", "draft_contract": contract.model_dump(mode="json"),
+            "scenario": scenario or "food", "draft_contract": contract.model_dump(mode="json"),
             "contract": contract.model_dump(mode="json"), "questions": [], "answers": {},
             "reviewed": True, "events": [], "status": "awaiting_confirmation",
             "recommended": recommended.model_dump(mode="json") if recommended else None,

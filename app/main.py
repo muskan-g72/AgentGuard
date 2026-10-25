@@ -1,4 +1,4 @@
-﻿"""Local simulated booking API and same-origin demo website."""
+"""Local simulated booking API and same-origin demo website."""
 
 from __future__ import annotations
 
@@ -78,11 +78,13 @@ class RunRequest(Message):
 class FoodCompareRequest(Message):
     contract: FoodContract
     platform_urls: list[str]
+    scenario: str | None = None
 
 
 class FoodRunRequest(Message):
     task_id: str
     guard_off: bool = False
+    scenario: str | None = None
 
 
 def create_app(database: str | Path | None = None) -> FastAPI:
@@ -277,6 +279,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             ranking.ranked[0] if ranking.ranked else None,
             ranked=ranking.ranked,
             dropped=dropped,
+            scenario=body.scenario,
         )
         return {
             "task_id": task["task_id"],
@@ -298,7 +301,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
                 body.task_id, task["status"], "Guard-off mode enabled for the before/after food demo.",
                 event_type="food_guard_off_enabled", guard_off=True,
             )
-        return run_food_task(store(), body.task_id, api.state.food_browser_factory())
+        return run_food_task(store(), body.task_id, api.state.food_browser_factory(), scenario=body.scenario)
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
 
@@ -311,6 +314,30 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         if asset not in assets:
             raise HTTPException(404)
         return FileResponse(ROOT / asset)
+
+    @api.get("/data/food.json")
+    def food_catalog():
+        return FileResponse(ROOT / "data" / "food.json")
+
+    def food_assets(directory: str, allowed: set[str]):
+        def serve(asset: str = ""):
+            if not asset:
+                asset = "index.html"
+            if asset not in allowed:
+                raise HTTPException(404, "Page not found")
+            return FileResponse(ROOT / directory / asset)
+        return serve
+
+    for food_platform in ("foodhub", "quickbite", "dinedash"):
+        api.add_api_route("/" + food_platform + "/{asset:path}", food_assets(food_platform,
+                          {"index.html", "dish.html", "checkout.html", "confirmation.html"}), methods=["GET"])
+        api.add_api_route("/" + food_platform + "/", food_assets(food_platform,
+                          {"index.html", "dish.html", "checkout.html", "confirmation.html"}), methods=["GET"])
+        api.add_api_route("/" + food_platform, food_assets(food_platform,
+                          {"index.html", "dish.html", "checkout.html", "confirmation.html"}), methods=["GET"])
+
+    api.add_api_route("/food-demo/{asset:path}", food_assets("food-demo",
+                      {"index.html", "site.mjs", "logic.mjs", "styles.css", "plate.svg"}), methods=["GET"])
 
     return api
 

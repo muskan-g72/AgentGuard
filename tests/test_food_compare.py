@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 import pytest
 
 from app.food_compare import compare_all, compare_platform, effective_price, rank_options, stage_winner, taste_score
@@ -70,3 +71,41 @@ def test_food_urls_are_limited_to_the_three_configured_paths(monkeypatch):
     monkeypatch.setenv("TINYFISH_FOOD_PATH_PREFIXES", "/foodhub/")
     with pytest.raises(TinyFishError):
         validate_demo_url(URLS[1])
+
+
+
+def test_data_food_and_recordings_agree_on_all_options():
+    import json
+    root = Path(__file__).resolve().parents[1]
+    data_path = root / "data" / "food.json"
+    assert data_path.exists(), "data/food.json missing"
+    data = json.loads(data_path.read_text(encoding="utf-8"))
+    data_options = data["options"]
+    assert len(data_options) == 7
+
+    rec_options = []
+    for platform in ["foodhub", "quickbite", "dinedash"]:
+        rec_path = root / "recordings" / "food" / f"{platform}.json"
+        rec = json.loads(rec_path.read_text(encoding="utf-8"))
+        rec_options.extend(rec["options"])
+    assert len(rec_options) == 7
+
+    def opt_key(opt):
+        return (opt["platform"].lower(), opt["restaurant"].lower(), opt["dish"].lower())
+
+    data_by_key = {opt_key(o): o for o in data_options}
+    rec_by_key = {opt_key(o): o for o in rec_options}
+    assert set(data_by_key) == set(rec_by_key)
+
+    for key, d_opt in data_by_key.items():
+        r_opt = rec_by_key[key]
+        assert d_opt["veg"] == r_opt["veg"], f"veg mismatch for {key}"
+        assert d_opt["item_price"] == r_opt["item_price"], f"price mismatch for {key}"
+        assert d_opt["fees"] == r_opt["fees"], f"fees mismatch for {key}"
+        assert d_opt["rating"] == r_opt["rating"], f"rating mismatch for {key}"
+        assert d_opt["rating_count"] == r_opt["rating_count"], f"rating_count mismatch for {key}"
+        assert d_opt["eta_minutes"] == r_opt["eta_minutes"], f"eta mismatch for {key}"
+
+        d_coupons = [{k: c[k] for k in sorted(c) if k != "description"} for c in d_opt.get("coupons", [])]
+        r_coupons = [{k: c[k] for k in sorted(c) if k != "description"} for c in r_opt.get("coupons", [])]
+        assert d_coupons == r_coupons, f"coupons mismatch for {key}"

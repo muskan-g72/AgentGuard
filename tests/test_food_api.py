@@ -149,3 +149,55 @@ def test_guard_off_orders_the_preticked_food_cart_and_marks_events(client):
     assert task["food_cart"]["total"] == 320
     assert "food_guard_off_enabled" in event_types(client, comparison["task_id"])
     assert "food_guard_off_bypass" in event_types(client, comparison["task_id"])
+
+
+def test_food_replay_e2e_compare_and_extras_flow(client):
+    res = client.post("/food/compare", json={"contract": contract(), "platform_urls": URLS})
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert len(data["ranked"]) == 2
+    assert data["ranked"][0]["platform"] == "FoodHub" and data["ranked"][0]["restaurant"] == "Spice Route"
+    assert data["ranked"][1]["platform"] == "QuickBite" and data["ranked"][1]["restaurant"] == "Spice Route"
+    assert len(data["dropped"]) == 5
+    for entry in data["dropped"]:
+        assert len(entry["reasons"]) > 0
+
+    run_res = client.post("/food/run", json={"task_id": data["task_id"], "scenario": "extras"})
+    assert run_res.status_code == 200, run_res.text
+    task = client.get(f"/tasks/{data['task_id']}").json()
+    assert task["status"] == "done"
+    events = task["events"]
+    staged = next(e for e in events if e["type"] == "food_staged")
+    assert staged["payload"]["cart"]["total"] == 320
+    block = next(e for e in events if e["type"] == "food_decision" and e["payload"]["food_decision"]["result"] == "block")
+    assert block["payload"]["food_decision"]["remove_item_ids"] == ["tip", "donation"]
+    recheck = next(e for e in events if e["type"] == "food_recheck")
+    assert recheck["payload"]["cart"]["total"] == 280
+    commit = next(e for e in events if e["type"] == "food_commit_result")
+    assert commit["payload"]["total"] == 280
+
+
+def test_food_replay_e2e_extras_guard_off_commits_at_320(client):
+    res = client.post("/food/compare", json={"contract": contract(), "platform_urls": URLS})
+    assert res.status_code == 200
+    task_id = res.json()["task_id"]
+    run_res = client.post("/food/run", json={"task_id": task_id, "guard_off": True, "scenario": "extras"})
+    assert run_res.status_code == 200, run_res.text
+    task = client.get(f"/tasks/{task_id}").json()
+    assert task["status"] == "done"
+    commit = next(e for e in task["events"] if e["type"] == "food_commit_result")
+    assert commit["payload"]["total"] == 320
+
+
+@pytest.mark.parametrize("scenario", ["qty2", "hidden", "nototal"])
+def test_food_replay_e2e_invalid_scenarios_never_committed(client, scenario):
+    res = client.post("/food/compare", json={"contract": contract(), "platform_urls": URLS})
+    assert res.status_code == 200
+    task_id = res.json()["task_id"]
+    run_res = client.post("/food/run", json={"task_id": task_id, "scenario": scenario})
+    assert run_res.status_code == 200, run_res.text
+    task = client.get(f"/tasks/{task_id}").json()
+    assert task["status"] != "done"
+    types = [e["type"] for e in task["events"]]
+    assert "food_commit_started" not in types
+    assert "food_commit_result" not in types
