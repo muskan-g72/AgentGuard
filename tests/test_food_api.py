@@ -57,6 +57,16 @@ def compared_task(client):
     return response.json()
 
 
+def test_food_compare_accepts_the_compare_page_default_replay_payload(client):
+    response = client.post("/food/compare", json={
+        "contract": contract(), "platform_urls": URLS, "wallet": [], "replay": True,
+    })
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["mode"] == "fixture_replay"
+    assert (body["recommended"]["platform"], body["recommended"]["effective_price"]) == ("FoodHub", 280)
+
+
 def foodhub_option():
     return next(option for option in compare_platform(URLS[0]) if option.restaurant == "Spice Route")
 
