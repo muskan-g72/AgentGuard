@@ -26,14 +26,14 @@ def _local_url(url):
     return url
 
 
-def run_task(store: Store, task_id: str, mode="local", cart_url=None, confirm=False, *, headed=False):
-    task = store.task(task_id)
+def run_task(store: Store, task_id: str, mode="local", cart_url=None, confirm=False, owner_session_id=None, *, headed=False):
+    task = store.task(task_id, owner_session_id)
     contract = Store._reviewed(task)
     local_base = os.getenv("DEMO_LOCAL_URL", "http://127.0.0.1:8001").rstrip("/")
     query = {"scenario": task["scenario"], "from": contract.route.from_, "to": contract.route.to,
              "date": contract.date, "passengers": contract.quantity}
     source = None
-    store.event(task_id, "staging", f"Mode: {mode}. Playwright is an independent browser, not a TinyFish session.")
+    store.event(task_id, "staging", f"Mode: {mode}. Playwright is an independent browser, not a TinyFish session.", owner_session_id=owner_session_id)
     try:
         if mode in {"live", "replay"}:
             target = cart_url or (os.getenv("DEMO_URL", DEMO_URL).rstrip("/") + "/index.html?" + urlencode(query))
@@ -75,10 +75,10 @@ def run_task(store: Store, task_id: str, mode="local", cart_url=None, confirm=Fa
 
             def check_current():
                 independent_cart = extract_cart(page)
-                authoritative = store.cart(independent_cart.cart_id)
+                authoritative = store.cart(independent_cart.cart_id, owner_session_id)
                 if canonical(independent_cart) != canonical(authoritative["cart"]):
                     raise WorkflowError("Independent Playwright evidence and server cart disagree.")
-                store.event(task_id, "checking", "Fresh independent DOM extraction reconciled with server cart.")
+                store.event(task_id, "checking", "Fresh independent DOM extraction reconciled with server cart.", owner_session_id=owner_session_id)
                 result = page.evaluate("() => window.AgentGuardCheckout.check()")
                 trace.append({"cart": independent_cart.model_dump(mode="json"), "decision": result["decision"]})
                 return result
@@ -86,11 +86,11 @@ def run_task(store: Store, task_id: str, mode="local", cart_url=None, confirm=Fa
             result = check_current()
             decision = result["decision"]
             if decision["result"] == "block" and decision["remove_item_ids"]:
-                store.event(task_id, "fixing", "One bounded removal pass using returned actual item IDs.")
+                store.event(task_id, "fixing", "One bounded removal pass using returned actual item IDs.", owner_session_id=owner_session_id)
                 try:
                     remove_items(page, decision["remove_item_ids"])
                 except WorkflowError as error:
-                    return store.event(task_id, "blocked", str(error), trace=trace, mode=mode)
+                    return store.event(task_id, "blocked", str(error), owner_session_id=owner_session_id, trace=trace, mode=mode)
                 result = check_current()
                 decision = result["decision"]
             fields = {"trace": trace, "mode": mode, "staged_url": page.url}
@@ -103,17 +103,17 @@ def run_task(store: Store, task_id: str, mode="local", cart_url=None, confirm=Fa
                 fields["source_cart_id"] = source.cart.cart_id
                 fields["reconciliation"] = "Separate sessions; full cart content matched. Local mirror has its own server-issued cart ID."
             if decision["result"] == "allow" and confirm:
-                store.event(task_id, "committing", "Confirm button will submit the actual outgoing order request.", **fields)
+                store.event(task_id, "committing", "Confirm button will submit the actual outgoing order request.", owner_session_id=owner_session_id, **fields)
                 page.locator("#confirm").click()
                 page.wait_for_url("**/confirmation.html?order_id=*", timeout=15000)
                 page.wait_for_selector("#order[data-order-id]", timeout=10000)
                 order_image = artifacts / f"{task_id}-order.png"
                 page.screenshot(path=str(order_image), full_page=True)
-                return store.event(task_id, "done", "Confirmed order read back from the server.", order_screenshot=str(order_image))
+                return store.event(task_id, "done", "Confirmed order read back from the server.", owner_session_id=owner_session_id, order_screenshot=str(order_image))
             status = {"allow": "allowed", "block": "blocked", "ask": "blocked"}[decision["result"]]
-            return store.event(task_id, status, "Confirmation paused unless explicitly requested and allowed.", **fields)
+            return store.event(task_id, status, "Confirmation paused unless explicitly requested and allowed.", owner_session_id=owner_session_id, **fields)
     except Exception as error:
         # Local safe error classes carry useful details; don't expose arbitrary SDK messages.
         from .tinyfish_client import TinyFishError
         detail = str(error) if isinstance(error, (WorkflowError, TinyFishError)) else f"Workflow failed ({type(error).__name__}); no order was authorized."
-        return store.event(task_id, "failed", detail, mode=mode)
+        return store.event(task_id, "failed", detail, owner_session_id=owner_session_id, mode=mode)

@@ -42,13 +42,14 @@ def _decision(contract: FoodContract, cart: StagedFoodCart, expected_price: int,
 
 
 def commit_food_task(store: Store, task_id: str, browser: FoodBrowser, option: FoodOption,
-                     cart: StagedFoodCart, decision: Decision, *, guard_off: bool) -> bool:
+                     cart: StagedFoodCart, decision: Decision, *, guard_off: bool,
+                     owner_session_id=None) -> bool:
     """Food commit gate. The browser is never called without an allow decision.
 
     Guard-off mode is a deliberately labelled demo bypass requested by the caller.
     """
 
-    task = store.food_task(task_id)
+    task = store.food_task(task_id, owner_session_id)
     if not guard_off:
         if task["status"] != "allowed":
             _event(store, task_id, task["status"], "Food commit refused: task is not allowed.", "food_commit_refused", reason="status is not allowed")
@@ -79,15 +80,16 @@ def commit_food_task(store: Store, task_id: str, browser: FoodBrowser, option: F
     if not isinstance(result.get("order_id"), str) or not result["order_id"]:
         _event(store, task_id, "failed", "Food commit returned no order ID.", "food_commit_failed")
         return False
-    stored = store.record_food_order(task_id, cart, FoodContract.model_validate(task["contract"]), decision, result)
+    stored = store.record_food_order(task_id, cart, FoodContract.model_validate(task["contract"]), decision, result, owner_session_id)
     _event(store, task_id, "done", "Simulated food order committed after the required checks.", "food_commit_result", order_id=stored["order_id"], total=cart.total)
     return True
 
 
-def run_food_task(store: Store, task_id: str, browser: FoodBrowser, *, scenario: str | None = None) -> dict:
+def run_food_task(store: Store, task_id: str, browser: FoodBrowser, *, scenario: str | None = None,
+                  owner_session_id=None) -> dict:
     """Stage, check, make one bounded fix, re-check, and conditionally commit."""
 
-    task = store.food_task(task_id)
+    task = store.food_task(task_id, owner_session_id)
     if not task.get("reviewed"):
         raise RuntimeError("Food contract must be explicitly confirmed before running.")
     contract = FoodContract.model_validate(task["contract"])
@@ -105,20 +107,21 @@ def run_food_task(store: Store, task_id: str, browser: FoodBrowser, *, scenario:
         decision = _decision(contract, cart, expected_price, guard_off)
         _event(store, task_id, {"allow": "allowed", "block": "blocked", "ask": "blocked"}[decision.result], "Food cart decision recorded.", "food_decision", food_cart=cart.model_dump(mode="json"), food_cart_hash=digest(cart), food_decision=decision.model_dump(mode="json"), expected_effective_price=expected_price)
         if decision.result == "ask":
-            return store.food_task(task_id)
+            return store.food_task(task_id, owner_session_id)
         if decision.result == "block" and not guard_off:
             if not decision.remove_item_ids:
-                return store.food_task(task_id)
+                return store.food_task(task_id, owner_session_id)
             _event(store, task_id, "fixing", "Removing only checker-listed food extras.", "food_fix_started", remove_item_ids=decision.remove_item_ids)
             cart = browser.fix_cart(option, cart, decision.remove_item_ids)
             _event(store, task_id, "checking", "Food extras removed; re-checking fresh cart evidence.", "food_recheck", cart=cart.model_dump(mode="json"))
             decision = _decision(contract, cart, expected_price, False)
             _event(store, task_id, {"allow": "allowed", "block": "blocked", "ask": "blocked"}[decision.result], "Food re-check decision recorded.", "food_decision", food_cart=cart.model_dump(mode="json"), food_cart_hash=digest(cart), food_decision=decision.model_dump(mode="json"), expected_effective_price=expected_price)
             if decision.result != "allow":
-                return store.food_task(task_id)
+                return store.food_task(task_id, owner_session_id)
         if decision.result == "allow":
-            commit_food_task(store, task_id, browser, option, cart, decision, guard_off=guard_off)
-        return store.food_task(task_id)
+            commit_food_task(store, task_id, browser, option, cart, decision, guard_off=guard_off,
+                             owner_session_id=owner_session_id)
+        return store.food_task(task_id, owner_session_id)
     except Exception as error:
         _event(store, task_id, "failed", "Food workflow failed before a simulated order could be committed.", "food_run_failed", error=type(error).__name__)
-        return store.food_task(task_id)
+        return store.food_task(task_id, owner_session_id)

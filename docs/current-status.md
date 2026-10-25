@@ -10,9 +10,8 @@ orders persist in `food_orders` and are available through the order and receipt
 APIs. Replay is credential-free; live food requires the deployment kill switch
 and operator header. No deployment or paid API call has been performed.
 
-Remaining known blocker: public anonymous session ownership/authentication is not
-yet implemented, so the backend must not be exposed publicly until that boundary
-is added.
+Anonymous session ownership is now implemented locally; durable exposure still
+requires provisioning `AGENTGUARD_SESSION_SECRET` and rerunning deployment preflight.
 
 > Public-demo readiness has now been prepared locally; see
 > [public-demo-readiness.md](public-demo-readiness.md) for the observed public
@@ -298,3 +297,16 @@ API: `POST /tasks`, `POST /tasks/{id}/answers`, `POST /tasks/{id}/confirm`,
 `POST /api/carts/{id}/check`, `POST /api/carts/{id}/confirm`,
 `GET /api/orders/{id}`, `GET /health`. `POST /stage` requires a reviewed
 `task_id` and never issues approval on agent-supplied evidence alone.
+### Session ownership update
+
+Anonymous browser sessions are now server-created and signed. Resource reads and mutations are scoped to the session for train and food tasks, carts, approvals, orders, and receipts. Durable deployments must set `AGENTGUARD_SESSION_SECRET` through the secret manager; it is never placed in frontend assets or ordinary deployment configuration. Existing SQLite databases gain nullable ownership columns without data deletion; legacy rows remain retained but inaccessible to newly issued sessions.
+
+Security verification update: local browser sessions receive an HttpOnly,
+SameSite=Lax cookie (`Secure` is enabled in durable mode), and state-changing
+requests with a mismatched Origin are rejected. Tampered cookies are replaced
+with a new anonymous session and cannot read another session's resources.
+Train and food task/cart/order/receipt isolation, idempotent commits, durable
+secret enforcement, and additive SQLite migration are covered by
+`tests/test_session_security.py`. The full Python run reached 350 passed, 18
+skipped, and four failures caused only by the environment lacking Playwright
+Chromium; no application assertion was weakened.

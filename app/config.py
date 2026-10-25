@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
+import secrets
 from urllib.parse import urlparse
 
 
@@ -23,6 +24,7 @@ class Settings:
     public_origin: str
     durable: bool
     agent_runs_enabled: bool
+    session_secret: str
 
     @classmethod
     def load(cls, root: Path, database=None):
@@ -46,5 +48,12 @@ class Settings:
             mount = Path(os.getenv("AGENTGUARD_VOLUME_PATH", "/data")).resolve()
             if not path.is_absolute() or not path.resolve().is_relative_to(mount) or not mount.is_mount():
                 raise ValueError("Durable mode requires an absolute AGENTGUARD_DB inside a real mounted AGENTGUARD_VOLUME_PATH.")
+        configured_secret = os.getenv("AGENTGUARD_SESSION_SECRET")
+        if durable and not configured_secret:
+            raise ValueError("AGENTGUARD_SESSION_SECRET is required in durable mode.")
+        # Development sessions are intentionally process-local unless a test or
+        # local operator supplies a stable secret explicitly.
+        session_secret = configured_secret or secrets.token_urlsafe(32)
         return cls(path, frozenset(hosts), public.rstrip("/"), durable,
-                   os.getenv("AGENTGUARD_ENABLE_AGENT_RUNS", "false" if durable else "true") == "true")
+                   os.getenv("AGENTGUARD_ENABLE_AGENT_RUNS", "false" if durable else "true") == "true",
+                   session_secret)

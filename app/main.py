@@ -25,6 +25,7 @@ from guard.models import Cart, Contract, Message, OrderRequest
 from .catalog import BookingState
 from .config import Settings
 from .release import release
+from .session import SessionSigner
 from .store import Store, WorkflowError
 
 try:
@@ -99,12 +100,27 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     api.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(settings.allowed_hosts))
     api.state.store = Store(settings.database)
     api.state.settings = settings
+    signer = SessionSigner(settings.session_secret)
     from .food_workflow import TinyFishFoodBrowser
     api.state.food_browser_factory = TinyFishFoodBrowser
 
     @api.middleware("http")
     async def no_stale_authority(request, call_next):
+        session_id = signer.verify(request.cookies.get("agentguard_session"))
+        new_session = session_id is None
+        if new_session:
+            session_id, session_cookie = signer.issue()
+        request.state.session_id = session_id
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            origin = request.headers.get("origin")
+            if origin:
+                request_origin = f"{request.url.scheme}://{request.headers.get('host', '')}".rstrip("/")
+                if origin.rstrip("/") not in {settings.public_origin, request_origin}:
+                    return JSONResponse(status_code=403, content={"detail": "Cross-origin state change rejected."})
         response = await call_next(request)
+        if new_session:
+            response.set_cookie("agentguard_session", session_cookie, httponly=True,
+                                samesite="lax", secure=settings.durable, path="/")
         response.headers["Cache-Control"] = "no-store"
         response.headers["CDN-Cache-Control"] = "no-store"
         response.headers["Vercel-CDN-Cache-Control"] = "no-store"
@@ -134,6 +150,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             db.execute("SELECT 1").fetchone()
         return {"replay": os.getenv("REPLAY") == "1", "tinyfish_configured": bool(os.getenv("TINYFISH_API_KEY")),
                 "receipt_configured": bool(os.getenv("RECEIPT_KEY")),
+                "session_configured": (bool(os.getenv("AGENTGUARD_SESSION_SECRET")) if settings.durable else True),
                 "db_ok": True, "checker_available": callable(check) and callable(check_request),
                 "confirmation_protected": True, "release_id": version["release_id"], "instance_id": instance_id,
                 "public_origin": settings.public_origin, "agent_runs_enabled": settings.agent_runs_enabled,
@@ -144,7 +161,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         return version
 
     @api.post("/tasks")
-    def create_task(body: TaskCreate):
+    def create_task(body: TaskCreate, request: Request):
         guard()
         if not body.guard_enabled:
             raise WorkflowError("The confirmation guard cannot be disabled.", 422)
@@ -155,31 +172,31 @@ def create_app(database: str | Path | None = None) -> FastAPI:
                 draft = DEMO_CONTRACT.model_copy(deep=True)
         else:
             draft = body.draft_contract
-        return store().create_task(body.sentence, draft, body.scenario)
+        return store().create_task(body.sentence, draft, body.scenario, request.state.session_id)
 
     @api.get("/tasks/{task_id}")
-    def task(task_id: str):
-        return store().task(task_id)
+    def task(task_id: str, request: Request):
+        return store().task(task_id, request.state.session_id)
 
     @api.post("/tasks/{task_id}/answers")
-    def answers(task_id: str, body: Answers):
-        return store().answer(task_id, body.answers)
+    def answers(task_id: str, body: Answers, request: Request):
+        return store().answer(task_id, body.answers, request.state.session_id)
 
     @api.post("/tasks/{task_id}/confirm")
-    def review(task_id: str, body: Review):
+    def review(task_id: str, body: Review, request: Request):
         guard()
-        store().review(task_id, body.contract)
-        return store().task(task_id)
+        store().review(task_id, body.contract, request.state.session_id)
+        return store().task(task_id, request.state.session_id)
 
     @api.get("/tasks/{task_id}/events")
-    def events(task_id: str, after_id: int = 0, follow: bool = False):
-        store().task(task_id)
+    def events(task_id: str, request: Request, after_id: int = 0, follow: bool = False):
+        store().task(task_id, request.state.session_id)
 
         def stream():
             cursor = after_id
             idle = 0
             while True:
-                rows = [event for event in store().task(task_id)["events"] if event["id"] > cursor]
+                rows = [event for event in store().task(task_id, request.state.session_id)["events"] if event["id"] > cursor]
                 for event in rows:
                     cursor = event["id"]
                     yield ("id: " + str(cursor) + "\n" + "event: " + event["type"] + "\n"
@@ -199,16 +216,16 @@ def create_app(database: str | Path | None = None) -> FastAPI:
                                  headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
     @api.get("/tasks/{task_id}/receipt")
-    def receipt(task_id: str):
-        return store().receipt(task_id)
+    def receipt(task_id: str, request: Request):
+        return store().receipt(task_id, request.state.session_id)
 
     @api.get("/tasks/{task_id}/receipt/verify")
-    def verify_receipt(task_id: str):
-        return store().verify_receipt(task_id)
+    def verify_receipt(task_id: str, request: Request):
+        return store().verify_receipt(task_id, request.state.session_id)
 
     @api.post("/api/carts")
-    def create_cart(body: BookingState):
-        return store().save_cart(body)
+    def create_cart(body: BookingState, request: Request):
+        return store().save_cart(body, owner_session_id=request.state.session_id)
 
     @api.get("/api/catalog")
     def catalog():
@@ -219,33 +236,34 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         ]}
 
     @api.get("/api/carts/{cart_id}")
-    def cart(cart_id: str):
-        return store().cart(cart_id)
+    def cart(cart_id: str, request: Request):
+        return store().cart(cart_id, request.state.session_id)
 
     @api.put("/api/carts/{cart_id}")
-    def update_cart(cart_id: str, body: BookingState):
-        return store().save_cart(body, cart_id)
+    def update_cart(cart_id: str, body: BookingState, request: Request):
+        return store().save_cart(body, cart_id, request.state.session_id)
 
     @api.post("/api/carts/{cart_id}/check")
-    def evaluate(cart_id: str, body: Evidence):
-        return store().evaluate(body.task_id, cart_id, body.cart, guard())
+    def evaluate(cart_id: str, body: Evidence, request: Request):
+        return store().evaluate(body.task_id, cart_id, body.cart, guard(), request.state.session_id)
 
     @api.post("/api/carts/{cart_id}/confirm")
     def confirm(cart_id: str, body: Confirmation, request: Request):
         guard()
         return store().confirm(body.task_id, cart_id, body.approval, body.order_request,
-                               check, partial(check_request, allowed_hosts=settings.allowed_hosts), request.url.hostname)
+                               check, partial(check_request, allowed_hosts=settings.allowed_hosts), request.url.hostname,
+                               request.state.session_id)
 
     @api.get("/api/orders/{order_id}")
-    def order(order_id: str):
-        return store().order(order_id)
+    def order(order_id: str, request: Request):
+        return store().order(order_id, request.state.session_id)
 
     @api.post("/stage")
-    def stage(body: StageRequest):
+    def stage(body: StageRequest, request: Request):
         if not settings.agent_runs_enabled:
             raise WorkflowError("Agent execution is operator-local; the public server does not run paid agents.", 403)
         guard()
-        current = store().task(body.task_id)
+        current = store().task(body.task_id, request.state.session_id)
         contract = Store._reviewed(current)
         from .staging import StagingError, stage_cart_details
         try:
@@ -253,19 +271,28 @@ def create_app(database: str | Path | None = None) -> FastAPI:
                                                contract, scenario=body.scenario or current["scenario"])
             decision = check(contract, cart, hidden)
         except (StagingError, ValidationError, OSError, ValueError) as error:
-            store().event(body.task_id, "failed", "Staging failed; no approval or order issued.")
+            store().event(body.task_id, "failed", "Staging failed; no approval or order issued.",
+                          owner_session_id=request.state.session_id)
             raise HTTPException(502, "Staging failed; inspect the local staging command for safe details.") from error
         return {"mode": "fixture_replay" if os.getenv("REPLAY") == "1" else "live_agent",
                 "cart": cart.model_dump(mode="json"), "decision": decision.model_dump(mode="json"),
                 "approval": None, "note": "Agent-supplied evidence alone never issues a confirmation approval."}
 
     @api.post("/tasks/{task_id}/run")
-    def run(task_id: str, body: RunRequest):
+    def run(task_id: str, body: RunRequest, request: Request):
         if not settings.agent_runs_enabled:
             raise WorkflowError("Agent execution is operator-local; use the public checkout for simulated bookings.", 403)
         guard()
-        Store._reviewed(store().task(task_id))
+        Store._reviewed(store().task(task_id, request.state.session_id))
         from .workflow import run_task
+        # Keep compatibility with operator-local integrations that monkeypatch
+        # the historical five-argument orchestrator while passing ownership to
+        # the real implementation.
+        import inspect
+        parameters = inspect.signature(run_task).parameters
+        if "owner_session_id" in parameters:
+            return run_task(store(), task_id, body.mode, body.cart_url, body.confirm,
+                            owner_session_id=request.state.session_id)
         return run_task(store(), task_id, body.mode, body.cart_url, body.confirm)
 
     @api.post("/food/compare")
@@ -294,7 +321,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             ranking.ranked[0] if ranking.ranked else None,
             ranked=ranking.ranked,
             dropped=dropped,
-            scenario=body.scenario,
+            scenario=body.scenario, owner_session_id=request.state.session_id,
         )
         return {
             "task_id": task["task_id"],
@@ -305,9 +332,9 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         }
 
     @api.post("/food/{task_id}/confirm")
-    def food_confirm(task_id: str, body: FoodConfirmRequest):
-        task = store().food_task(task_id)
-        return store().confirm_food(task_id, body.contract)
+    def food_confirm(task_id: str, body: FoodConfirmRequest, request: Request):
+        task = store().food_task(task_id, request.state.session_id)
+        return store().confirm_food(task_id, body.contract, request.state.session_id)
 
     @api.post("/food/run")
     def food_run(body: FoodRunRequest, request: Request):
@@ -320,12 +347,13 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             if not operator or request.headers.get("X-AgentGuard-Operator") != operator:
                 raise WorkflowError("Live food runs require operator authorization.", 403)
 
-        task = store().food_task(body.task_id)
+        task = store().food_task(body.task_id, request.state.session_id)
         if task.get("recommended") is None:
             raise WorkflowError("No food option survived comparison; staging cannot start.", 409)
         if not task.get("reviewed"):
             raise WorkflowError("Confirm the food contract before starting the guarded run.", 409)
-        return run_food_task(store(), body.task_id, api.state.food_browser_factory(), scenario=body.scenario)
+        return run_food_task(store(), body.task_id, api.state.food_browser_factory(), scenario=body.scenario,
+                             owner_session_id=request.state.session_id)
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
     ui_assets = {"index.html", "styles.css", "icon.svg", "app.mjs", "api.mjs", "mock-api.mjs", "format.mjs"}

@@ -41,6 +41,7 @@ def test_durable_public_backend_never_runs_paid_agent(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTGUARD_VOLUME_PATH", str(tmp_path))
     monkeypatch.setenv("AGENTGUARD_DB", str(tmp_path / "public.db"))
     monkeypatch.setenv("AGENTGUARD_PUBLIC_ORIGIN", "https://demo-booking-tau.vercel.app")
+    monkeypatch.setenv("AGENTGUARD_SESSION_SECRET", "test-session-secret")
     monkeypatch.setattr(type(tmp_path), "is_mount", lambda self: self == tmp_path)
     client = TestClient(create_app(), base_url="https://demo-booking-tau.vercel.app")
     value = task(client, review=True)

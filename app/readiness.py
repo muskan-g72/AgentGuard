@@ -64,9 +64,10 @@ def verify_readiness(base_url: str, *, expected_release=None, require_durable=Tr
         raise ReadinessError("The served backend release differs from the expected protected release.")
     if not all(health.get(key) is True for key in (
         "db_ok", "checker_available", "confirmation_protected", "receipt_configured",
+        "session_configured",
     )):
         raise ReadinessError(
-            "The authoritative database, checker, protected confirmation, or receipt signer is unavailable."
+            "The authoritative database, checker, protected confirmation, receipt signer, or session signer is unavailable."
         )
     storage = health.get("storage", {})
     if not isinstance(storage, dict) or not storage.get("storage_id"):

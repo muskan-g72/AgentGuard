@@ -49,10 +49,14 @@ The taste score is `(rating * rating_count + 3.8 * 50) / (rating_count + 50)`. I
 ## Planned work
 
 - Verify live food paths and TinyFish results after deployment.
-- Add session ownership and authenticated public-demo access before deployment.
+- Durable anonymous session ownership is implemented; production deployment still
+  requires configuring the signing secret through the platform secret manager.
 - Add more than one food-fix attempt if product requirements permit it.
 - Provide a production authorization mode; `guard_off` is demo-only.
 
 ## What is simulated
 
 Train inventory, food options, carts, fees, coupons, order IDs, and orders are demo data. No real payment, reservation, or personal-data submission is implemented.
+### Anonymous session ownership
+
+The backend creates an opaque, HMAC-signed `agentguard_session` HttpOnly cookie. Durable mode requires `AGENTGUARD_SESSION_SECRET`; local mode uses an explicitly process-local development secret unless one is supplied. SQLite ownership columns are added idempotently to tasks, carts, approvals, train orders, and food orders. Legacy rows are retained but are not readable by a new anonymous session. State-changing requests with an Origin header must match the configured public origin or the exact request origin. Cookies are SameSite=Lax and Secure only in durable mode.

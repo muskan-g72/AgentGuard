@@ -82,16 +82,19 @@ def test_public_host_and_approval_survive_application_restart_with_same_database
     monkeypatch.setenv("AGENTGUARD_VOLUME_PATH", str(tmp_path))
     monkeypatch.setenv("AGENTGUARD_DB", str(tmp_path / "workflow.db"))
     monkeypatch.setenv("AGENTGUARD_BACKEND_HOST", "agentguard-test-only.fly.dev")
+    monkeypatch.setenv("AGENTGUARD_SESSION_SECRET", "test-session-secret")
     monkeypatch.setattr(Path, "is_mount", lambda self: self == tmp_path)
     app = create_app()
     with TestClient(app, base_url="https://agentguard-test-only.fly.dev") as first:
         _, record, confirmation = approved(first)
+        session_cookie = first.cookies.get("agentguard_session")
         health = first.get("/health").json()
         assert health["storage"]["durable"] is True
         assert first.post("/stage", json={"task_id": confirmation["task_id"]}).status_code == 403
         assert first.post('/tasks/' + confirmation["task_id"] + '/run', json={}).status_code == 403
         assert first.get("/health", headers={"Host": "agentguard-test-only.fly.dev.evil.example"}).status_code == 400
     with TestClient(create_app(), base_url=PUBLIC_ORIGIN) as second:
+        second.cookies.set("agentguard_session", session_cookie)
         after = second.get("/health").json()
         assert health["storage"]["storage_id"] == after["storage"]["storage_id"]
         assert health["instance_id"] != after["instance_id"]
@@ -121,6 +124,7 @@ def ready_responses():
     values = {"/" + name: (ROOT / name).read_bytes() for name in (*ASSETS, *PUBLIC_ASSETS)}
     health = {"release_id": version["release_id"], "db_ok": True, "checker_available": True,
               "receipt_configured": True,
+              "session_configured": True,
               "confirmation_protected": True, "public_origin": PUBLIC_ORIGIN,
               "storage": {"durable": True, "storage_id": "persistent-test-id"}}
     values.update({"/version": json.dumps(version).encode(), "/health": json.dumps(health).encode(),
@@ -150,7 +154,7 @@ def test_direct_backend_preflight_checks_the_configured_public_origin():
     assert result["ready"] is True
 
 
-@pytest.mark.parametrize("fault", ["ephemeral", "wrong_release", "stale_asset", "wrong_proxy", "missing_checker", "missing_receipt_key", "missing_storage_id"])
+@pytest.mark.parametrize("fault", ["ephemeral", "wrong_release", "stale_asset", "wrong_proxy", "missing_checker", "missing_receipt_key", "missing_session_secret", "missing_storage_id"])
 def test_preflight_rejects_inconsistent_or_ephemeral_deployment(fault):
     values = ready_responses()
     health = json.loads(values["/health"])
@@ -160,6 +164,8 @@ def test_preflight_rejects_inconsistent_or_ephemeral_deployment(fault):
         health["checker_available"] = False
     elif fault == "missing_receipt_key":
         health["receipt_configured"] = False
+    elif fault == "missing_session_secret":
+        health["session_configured"] = False
     elif fault == "missing_storage_id":
         health["storage"].pop("storage_id")
     elif fault == "wrong_release":

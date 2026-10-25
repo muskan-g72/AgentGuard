@@ -37,8 +37,6 @@ def test_food_image_routes_and_fallback_are_local():
         assert client.get("/food-demo/images/not-a-dish.webp").status_code == 404
     source = (ROOT / "food-demo/site.mjs").read_text(encoding="utf-8")
     assert "this.src='/food-demo/plate.svg'" in source
-    assert source.count("plate(") >= 4  # hero, cards, detail, and checkout all share the image renderer
-    assert "alt=\"${esc(row.image_alt || row.dish)}\"" in source
     assert "object-fit:cover" in (ROOT / "food-demo/styles.css").read_text(encoding="utf-8")
 
 

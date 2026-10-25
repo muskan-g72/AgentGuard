@@ -48,23 +48,34 @@ class Store:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS tasks (
-                    id TEXT PRIMARY KEY, body TEXT NOT NULL);
+                    id TEXT PRIMARY KEY, body TEXT NOT NULL, owner_session_id TEXT);
                 CREATE TABLE IF NOT EXISTS carts (
                     id TEXT PRIMARY KEY, version INTEGER NOT NULL,
-                    state TEXT NOT NULL, cart TEXT NOT NULL);
+                    state TEXT NOT NULL, cart TEXT NOT NULL, owner_session_id TEXT);
                 CREATE TABLE IF NOT EXISTS approvals (
                     token TEXT PRIMARY KEY, task_id TEXT NOT NULL, cart_id TEXT NOT NULL,
-                    version INTEGER NOT NULL, contract_hash TEXT NOT NULL, cart_hash TEXT NOT NULL);
+                    version INTEGER NOT NULL, contract_hash TEXT NOT NULL, cart_hash TEXT NOT NULL,
+                    owner_session_id TEXT);
                 CREATE TABLE IF NOT EXISTS orders (
-                    id TEXT PRIMARY KEY, approval TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL);
+                    id TEXT PRIMARY KEY, approval TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL,
+                    owner_session_id TEXT);
                 CREATE TABLE IF NOT EXISTS food_orders (
-                    id TEXT PRIMARY KEY, task_id TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL);
+                    id TEXT PRIMARY KEY, task_id TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL,
+                    owner_session_id TEXT);
                 CREATE TRIGGER IF NOT EXISTS orders_no_update BEFORE UPDATE ON orders
                     BEGIN SELECT RAISE(ABORT, 'Orders are immutable'); END;
                 CREATE TRIGGER IF NOT EXISTS orders_no_delete BEFORE DELETE ON orders
                     BEGIN SELECT RAISE(ABORT, 'Orders are immutable'); END;
             """)
+            self._migrate_owner_columns(db)
             db.execute("INSERT OR IGNORE INTO metadata VALUES ('storage_id', ?)", (str(uuid4()),))
+
+    @staticmethod
+    def _migrate_owner_columns(db):
+        for table in ("tasks", "carts", "approvals", "orders", "food_orders"):
+            columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+            if "owner_session_id" not in columns:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN owner_session_id TEXT")
 
     def storage_id(self):
         with self.connection() as db:
@@ -84,16 +95,18 @@ class Store:
         finally:
             db.close()
 
-    def _task(self, db, task_id):
-        row = db.execute("SELECT body FROM tasks WHERE id=?", (task_id,)).fetchone()
+    def _task(self, db, task_id, owner_session_id=None):
+        row = db.execute("SELECT body, owner_session_id FROM tasks WHERE id=?", (task_id,)).fetchone()
         if row is None:
+            raise WorkflowError("Task not found.", 404)
+        if owner_session_id is not None and row["owner_session_id"] != owner_session_id:
             raise WorkflowError("Task not found.", 404)
         task = json.loads(row[0])
         self._ensure_event_chain(task)
         return task
 
     def _save_task(self, db, task):
-        db.execute("INSERT OR REPLACE INTO tasks VALUES (?,?)", (task["task_id"], canonical(task)))
+        db.execute("UPDATE tasks SET body=? WHERE id=?", (canonical(task), task["task_id"]))
 
     @staticmethod
     def _event_core(event):
@@ -148,7 +161,7 @@ class Store:
         task["events"].append(event)
         self._save_task(db, task)
 
-    def create_task(self, sentence: str, contract: Contract, scenario: str):
+    def create_task(self, sentence: str, contract: Contract, scenario: str, owner_session_id=None):
         # A fallback may have missed explicit preferences: ask about all nulls.
         questions = find_gaps(contract, "" if contract.source == "fallback" else sentence)
         # Never silently discard an explicit preference that a parser left null.
@@ -159,6 +172,7 @@ class Store:
                 "questions": questions, "answers": {}, "reviewed": False, "events": [],
                 "status": "awaiting_answers" if questions else "awaiting_confirmation"}
         with self.connection() as db:
+            db.execute("INSERT INTO tasks(id, body, owner_session_id) VALUES (?,?,?)", (task["task_id"], canonical(task), owner_session_id))
             self._event(
                 db,
                 task,
@@ -171,7 +185,7 @@ class Store:
 
     def create_food_task(self, contract: FoodContract, recommended: FoodOption | None, *,
                          ranked: list[FoodOption], dropped: list[dict], guard_off: bool = False,
-                         scenario: str | None = None):
+                         scenario: str | None = None, owner_session_id=None):
         """Persist food comparison evidence in the same append-only task event chain."""
         task = {
             "task_id": str(uuid4()), "kind": "food", "sentence": "Food comparison",
@@ -182,6 +196,7 @@ class Store:
             "guard_off": guard_off,
         }
         with self.connection() as db:
+            db.execute("INSERT INTO tasks(id, body, owner_session_id) VALUES (?,?,?)", (task["task_id"], canonical(task), owner_session_id))
             self._event(
                 db, task, "awaiting_confirmation", "Food platform comparison completed.",
                 event_type="food_compare_done", payload={"ranked_count": len(ranked), "dropped_count": len(dropped)},
@@ -196,10 +211,10 @@ class Store:
             )
         return task
 
-    def confirm_food(self, task_id, contract: FoodContract | None = None):
+    def confirm_food(self, task_id, contract: FoodContract | None = None, owner_session_id=None):
         """Explicitly authorize a food contract before any staging or agent run."""
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             if task.get("kind") != "food":
                 raise WorkflowError("Task is not a food task.", 422)
             if task.get("reviewed"):
@@ -214,16 +229,16 @@ class Store:
                         event_type="food_contract_confirmed", payload={"contract_hash": task["contract_hash"]})
             return task
 
-    def food_task(self, task_id):
-        task = self.task(task_id)
+    def food_task(self, task_id, owner_session_id=None):
+        task = self.task(task_id, owner_session_id)
         if task.get("kind") != "food":
             raise WorkflowError("Task is not a food task.", 422)
         return task
 
-    def record_food_order(self, task_id, cart, contract, decision, result):
+    def record_food_order(self, task_id, cart, contract, decision, result, owner_session_id=None):
         """Persist one immutable simulated food order, idempotently by task."""
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             existing = db.execute("SELECT snapshot FROM food_orders WHERE task_id=?", (task_id,)).fetchone()
             if existing is not None:
                 return json.loads(existing[0])
@@ -234,14 +249,14 @@ class Store:
                 "decision": decision.model_dump(mode="json"), "total": cart.total,
                 "cart_hash": digest(cart), "contract_hash": digest(contract),
             }
-            db.execute("INSERT INTO food_orders VALUES (?,?,?)", (order_id, task_id, canonical(snapshot)))
+            db.execute("INSERT INTO food_orders(id, task_id, snapshot, owner_session_id) VALUES (?,?,?,?)", (order_id, task_id, canonical(snapshot), owner_session_id))
             task["food_order_id"] = order_id
             self._save_task(db, task)
             return snapshot
 
-    def task(self, task_id):
+    def task(self, task_id, owner_session_id=None):
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             return {
                 **task,
                 "contract_confirmed": bool(task["reviewed"]),
@@ -251,9 +266,9 @@ class Store:
                 ],
             }
 
-    def answer(self, task_id, answers):
+    def answer(self, task_id, answers, owner_session_id=None):
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             if task["reviewed"]:
                 raise WorkflowError("Create a new task to change reviewed instructions.")
             if set(answers) - {q["key"] for q in task["questions"]}:
@@ -279,9 +294,9 @@ class Store:
     def _answered(task):
         return all(q["key"] in task["answers"] for q in task["questions"])
 
-    def review(self, task_id, contract: Contract | None = None):
+    def review(self, task_id, contract: Contract | None = None, owner_session_id=None):
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             if not self._answered(task):
                 raise WorkflowError("Answer every clarification question before authorization.")
             if task["reviewed"]:
@@ -301,39 +316,41 @@ class Store:
             )
             return task
 
-    def event(self, task_id, status, detail, **fields):
+    def event(self, task_id, status, detail, owner_session_id=None, **fields):
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             event_type = fields.pop("event_type", "status_changed")
             task.update(fields)
             self._event(db, task, status, detail, event_type=event_type, payload=fields)
             return task
 
-    def _cart(self, db, cart_id):
+    def _cart(self, db, cart_id, owner_session_id=None):
         row = db.execute("SELECT * FROM carts WHERE id=?", (cart_id,)).fetchone()
         if row is None:
+            raise WorkflowError("Cart not found.", 404)
+        if owner_session_id is not None and row["owner_session_id"] != owner_session_id:
             raise WorkflowError("Cart not found.", 404)
         return {"cart_id": row["id"], "version": row["version"],
                 "state": json.loads(row["state"]), "cart": json.loads(row["cart"])}
 
-    def cart(self, cart_id):
+    def cart(self, cart_id, owner_session_id=None):
         with self.connection() as db:
-            return self._cart(db, cart_id)
+            return self._cart(db, cart_id, owner_session_id)
 
-    def save_cart(self, state: BookingState, cart_id=None):
+    def save_cart(self, state: BookingState, cart_id=None, owner_session_id=None):
         with self.connection() as db:
             version = 1
             if cart_id is not None:
-                existing = self._cart(db, cart_id)
+                existing = self._cart(db, cart_id, owner_session_id)
                 if canonical(existing["state"]) == canonical(state):
                     return existing
                 version = existing["version"] + 1
             else:
                 cart_id = "cart_" + uuid4().hex
             cart = make_cart(cart_id, state)
-            db.execute("INSERT OR REPLACE INTO carts VALUES (?,?,?,?)",
-                       (cart_id, version, canonical(state), canonical(cart)))
-            return self._cart(db, cart_id)
+            db.execute("INSERT OR REPLACE INTO carts(id, version, state, cart, owner_session_id) VALUES (?,?,?,?,?)",
+                       (cart_id, version, canonical(state), canonical(cart), owner_session_id))
+            return self._cart(db, cart_id, owner_session_id)
 
     @staticmethod
     def _reviewed(task):
@@ -341,15 +358,15 @@ class Store:
             raise WorkflowError("The contract and every clarification answer must be reviewed first.")
         return Contract.model_validate(task["contract"])
 
-    def evaluate(self, task_id, cart_id, evidence: Cart, checker):
+    def evaluate(self, task_id, cart_id, evidence: Cart, checker, owner_session_id=None):
         if not callable(checker):
             raise WorkflowError("Checker unavailable; no approval was issued.", 503)
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             contract = self._reviewed(task)
             if task.get("order_id"):
                 raise WorkflowError("This task already has a confirmed order; create a new task for another booking.")
-            current = self._cart(db, cart_id)
+            current = self._cart(db, cart_id, owner_session_id)
             cart = Cart.model_validate(current["cart"])
             if canonical(evidence) != canonical(cart):
                 raise WorkflowError("Browser extraction disagrees with the authoritative server cart; no approval issued.")
@@ -362,8 +379,8 @@ class Store:
             approval = None
             if decision.result == "allow":
                 approval = secrets.token_urlsafe(32)
-                db.execute("INSERT INTO approvals VALUES (?,?,?,?,?,?)",
-                           (approval, task_id, cart_id, current["version"], digest(contract), digest(cart)))
+                db.execute("INSERT INTO approvals(token, task_id, cart_id, version, contract_hash, cart_hash, owner_session_id) VALUES (?,?,?,?,?,?,?)",
+                           (approval, task_id, cart_id, current["version"], digest(contract), digest(cart), owner_session_id))
             task["cart_id"] = cart_id
             task["decision"] = decision.model_dump(mode="json")
             self._event(
@@ -377,12 +394,13 @@ class Store:
             return {"decision": decision.model_dump(mode="json"), "approval": approval,
                     "cart_id": cart_id, "version": current["version"]}
 
-    def confirm(self, task_id, cart_id, approval, outgoing: OrderRequest, checker, request_checker, host):
+    def confirm(self, task_id, cart_id, approval, outgoing: OrderRequest, checker, request_checker, host, owner_session_id=None):
         if not callable(checker) or not callable(request_checker):
             raise WorkflowError("Checker unavailable; order creation is disabled.", 503)
         with self.connection() as db:
             permit = db.execute("SELECT * FROM approvals WHERE token=?", (approval,)).fetchone()
-            if permit is None or permit["task_id"] != task_id or permit["cart_id"] != cart_id:
+            if (permit is None or permit["task_id"] != task_id or permit["cart_id"] != cart_id
+                    or owner_session_id is not None and permit["owner_session_id"] != owner_session_id):
                 raise WorkflowError("A valid server-issued approval is required.")
             previous = db.execute("SELECT snapshot FROM orders WHERE approval=?", (approval,)).fetchone()
             if previous is not None:
@@ -390,13 +408,13 @@ class Store:
                 if canonical(outgoing) != canonical(snapshot["order_request"]):
                     raise WorkflowError("A repeated confirmation must match the original operation.")
                 return snapshot
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             contract = self._reviewed(task)
             if task.get("order_id"):
                 raise WorkflowError("This task already has a confirmed simulated order.")
             if task["status"] not in {"allowed", "committing"}:
                 raise WorkflowError("This task is paused, blocked or failed; run a fresh check before confirmation.")
-            current = self._cart(db, cart_id)
+            current = self._cart(db, cart_id, owner_session_id)
             cart = Cart.model_validate(current["cart"])
             if (current["version"] != permit["version"] or digest(cart) != permit["cart_hash"]
                     or digest(contract) != permit["contract_hash"]):
@@ -421,7 +439,7 @@ class Store:
                 event_type="commit_started",
                 payload={"cart_hash": digest(cart), "contract_hash": digest(contract)},
             )
-            db.execute("INSERT INTO orders VALUES (?,?,?)", (snapshot["order_id"], approval, canonical(snapshot)))
+            db.execute("INSERT INTO orders(id, approval, snapshot, owner_session_id) VALUES (?,?,?,?)", (snapshot["order_id"], approval, canonical(snapshot), owner_session_id))
             task["order_id"] = snapshot["order_id"]
             self._event(
                 db,
@@ -433,12 +451,12 @@ class Store:
             )
             return snapshot
 
-    def order(self, order_id):
+    def order(self, order_id, owner_session_id=None):
         with self.connection() as db:
-            row = db.execute("SELECT snapshot FROM orders WHERE id=?", (order_id,)).fetchone()
+            row = db.execute("SELECT snapshot, owner_session_id FROM orders WHERE id=?", (order_id,)).fetchone()
             if row is None:
-                row = db.execute("SELECT snapshot FROM food_orders WHERE id=?", (order_id,)).fetchone()
-            if row is None:
+                row = db.execute("SELECT snapshot, owner_session_id FROM food_orders WHERE id=?", (order_id,)).fetchone()
+            if row is None or owner_session_id is not None and row["owner_session_id"] != owner_session_id:
                 raise WorkflowError("No confirmed server order exists.", 404)
             return json.loads(row[0])
 
@@ -449,9 +467,9 @@ class Store:
             raise WorkflowError("Receipt signing is not configured.", 503)
         return key.encode()
 
-    def receipt(self, task_id):
+    def receipt(self, task_id, owner_session_id=None):
         with self.connection() as db:
-            task = self._task(db, task_id)
+            task = self._task(db, task_id, owner_session_id)
             final = None
             row = None
             if task.get("order_id"):
@@ -491,5 +509,5 @@ class Store:
             return {"valid": False, "broken_at": len(receipt.get("events", [])) + 1}
         return {"valid": True}
 
-    def verify_receipt(self, task_id):
-        return self.verify_receipt_data(self.receipt(task_id), self._receipt_key())
+    def verify_receipt(self, task_id, owner_session_id=None):
+        return self.verify_receipt_data(self.receipt(task_id, owner_session_id), self._receipt_key())
