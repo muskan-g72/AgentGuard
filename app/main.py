@@ -79,12 +79,14 @@ class FoodCompareRequest(Message):
     contract: FoodContract
     platform_urls: list[str]
     scenario: str | None = None
+    replay: bool | None = None
 
 
 class FoodRunRequest(Message):
     task_id: str
     guard_off: bool = False
     scenario: str | None = None
+    replay: bool | None = None
 
 
 def create_app(database: str | Path | None = None) -> FastAPI:
@@ -268,7 +270,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def food_compare(body: FoodCompareRequest):
         from .food_compare import compare_all, rank_options
 
-        comparison = compare_all(body.platform_urls)
+        comparison = compare_all(body.platform_urls, replay=body.replay)
         ranking = rank_options(comparison.options, body.contract)
         dropped = [
             {"option": entry.option.model_dump(mode="json"), "reasons": entry.reasons}
@@ -281,12 +283,15 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             dropped=dropped,
             scenario=body.scenario,
         )
+        mode = "fixture_replay" if (body.replay if body.replay is not None else os.getenv("REPLAY") == "1") else "live_agent"
         return {
             "task_id": task["task_id"],
             "ranked": [option.model_dump(mode="json") for option in ranking.ranked],
             "dropped": dropped,
             "recommended": ranking.ranked[0].model_dump(mode="json") if ranking.ranked else None,
             "failed_platforms": comparison.failures,
+            "mode": mode,
+            "replay_available": True,
         }
 
     @api.post("/food/run")
@@ -301,7 +306,15 @@ def create_app(database: str | Path | None = None) -> FastAPI:
                 body.task_id, task["status"], "Guard-off mode enabled for the before/after food demo.",
                 event_type="food_guard_off_enabled", guard_off=True,
             )
-        return run_food_task(store(), body.task_id, api.state.food_browser_factory(), scenario=body.scenario)
+        factory = api.state.food_browser_factory
+        if callable(factory):
+            try:
+                browser = factory(replay=body.replay)
+            except TypeError:
+                browser = factory()
+        else:
+            browser = factory
+        return run_food_task(store(), body.task_id, browser, scenario=body.scenario)
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
     food_pages = {"index.html", "dish.html", "checkout.html", "confirmation.html"}
@@ -320,6 +333,13 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     @api.get("/data/food.json")
     def food_catalog_asset():
         return FileResponse(ROOT / "data" / "food.json", media_type="application/json")
+
+    @api.get("/food-demo/images/{image}")
+    def food_demo_image(image: str):
+        image_path = ROOT / "food-demo" / "images" / image
+        if not image_path.is_file():
+            raise HTTPException(404)
+        return FileResponse(image_path)
 
     @api.get("/food-demo/{asset}")
     def food_demo_asset(asset: str):

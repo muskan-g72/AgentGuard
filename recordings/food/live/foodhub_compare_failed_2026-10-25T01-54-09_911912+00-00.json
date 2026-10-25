@@ -1,0 +1,11 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "error": "Food comparison failed after one JSON retry: TinyFish returned no food options. | TinyFish food run exceeded 120 seconds."
+  },
+  "run_id": "none",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare_failed",
+  "timestamp": "2026-10-25T01:54:09.911912+00:00"
+}

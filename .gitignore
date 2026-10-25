@@ -1,11 +1,18 @@
 .env
+.env.*
+*.env
+*.db
+*.log
+node_modules/
 .venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
 *.pyc
 guard.egg-info/
 .pytest_cache/
-data/
+data/*.db
 recordings/live/
 test-results/
 .vercel/
@@ -14,5 +21,4 @@ deploy/generated/
 /AgentGuard/
 /dist/
 ui/test-results/
-
 .pytest-temp/

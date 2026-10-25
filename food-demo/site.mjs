@@ -6,7 +6,11 @@ const slug = document.body.dataset.platform;
 let catalog, platform, state, option;
 const charge = value => value < 0 ? '− ' + money(-value) : money(value);
 const vegBadge = row => `<span class="diet ${row.veg ? 'veg' : 'nonveg'}"><i></i>${row.veg ? 'Vegetarian' : 'Non-vegetarian'}</span>`;
-const plate = (row, large = false) => `<div class="dish-art ${large ? 'large' : ''}" aria-hidden="true"><span class="art-label">${esc(row.restaurant)}</span><img src="/food-demo/plate.svg" alt=""><span class="art-stamp">${row.veg ? 'PLANT-LED COMFORT' : 'FROM THE KITCHEN'}</span></div>`;
+const plate = (row, large = false) => {
+  const imgSrc = (row && row.image) ? esc(row.image) : '/food-demo/plate.svg';
+  const imgAlt = esc(`${row ? row.dish : 'Dish'} from ${row ? row.restaurant : 'Restaurant'}`);
+  return `<div class="dish-art ${large ? 'large' : ''}"><span class="art-label">${esc(row.restaurant)}</span><img class="dish-photo" src="${imgSrc}" alt="${imgAlt}" onerror="this.onerror=null;this.src='/food-demo/plate.svg';"><span class="art-stamp">${row.veg ? 'PLANT-LED COMFORT' : 'FROM THE KITCHEN'}</span></div>`;
+};
 
 function nav() {
   return `<div class="fixture-bar">FICTIONAL FOOD DEMO <span>All dishes, ratings and reviews are synthetic. No real orders or payments.</span></div><header class="site-header"><a class="brand" href="/${platform.id}/?scenario=${state.scenario}"><span class="brand-icon">${esc(platform.icon)}</span>${esc(platform.name)}<small>THE FICTIONAL FOOD EDITION</small></a><nav aria-label="Platforms">${catalog.platforms.map(row => `<a class="${row.id === platform.id ? 'active' : ''}" href="/${row.id}/?scenario=${state.scenario}" ${row.id === platform.id ? 'aria-current="page"' : ''}>${esc(row.name)}</a>`).join('')}</nav><a class="sandbox-link" href="/food-demo/">Demo guide ↗</a></header><div class="context-strip"><span>◉ Serving the demo neighbourhood</span><label for="scenario">Scenario <select id="scenario">${SCENARIOS.map(value => `<option ${value === state.scenario ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div>`;
@@ -95,38 +99,79 @@ function wireGuardedWorkflow() {
   const button = document.getElementById('run-guarded');
   const output = document.getElementById('guard-output');
   if (!button || !output) return;
-  button.addEventListener('click', async () => {
+
+  async function executeComparison(forceReplay = false) {
     button.disabled = true;
-    output.textContent = 'Comparing FoodHub, QuickBite, and DineDash…';
-    const payload = { contract: { diet: 'veg', quantity: 1, max_total: 300, min_rating: 4.2, max_eta_minutes: 45, allow_extras: false, priority: 'price' }, platform_urls: ['/foodhub/', '/quickbite/', '/dinedash/'].map(path => new URL(path, location.origin).href) };
+    output.innerHTML = `<p>${forceReplay ? 'Running replay comparison…' : 'Comparing FoodHub, QuickBite, and DineDash…'}</p>`;
+    const payload = {
+      contract: { diet: 'veg', quantity: 1, max_total: 300, min_rating: 4.2, max_eta_minutes: 45, allow_extras: false, priority: 'price' },
+      platform_urls: ['/foodhub/', '/quickbite/', '/dinedash/'].map(path => new URL(path, location.origin).href),
+      ...(forceReplay ? { replay: true } : {})
+    };
     try {
       const compared = await fetch('/food/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!compared.ok) throw new Error(`Comparison failed (${compared.status}).`);
+      if (!compared.ok) {
+        const errJson = await compared.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Comparison failed (${compared.status}).`);
+      }
       const comparison = await compared.json();
+      const failKeys = comparison.failed_platforms ? Object.keys(comparison.failed_platforms) : [];
+      let failNotice = '';
+      if (failKeys.length > 0) {
+        const failMsgs = failKeys.map(k => `<strong>${esc(k)}</strong>: ${esc(comparison.failed_platforms[k])}`).join('<br>');
+        failNotice = `<div class="guard-failure-banner" role="alert"><p><strong>Platform Notice:</strong> Some or all platforms encountered errors:</p><p class="muted">${failMsgs}</p><p>You can run with recorded replay fixtures instead:</p><button id="retry-replay" class="button" type="button">Switch to Replay Mode</button></div>`;
+      }
+      if (!comparison.ranked || comparison.ranked.length === 0) {
+        output.innerHTML = `<p role="alert"><strong>No food options survived comparison.</strong></p>${failNotice || '<p>Switch to replay fixtures to run the guarded demonstration.</p><button id="retry-replay" class="button" type="button">Switch to Replay Mode</button>'}`;
+        document.getElementById('retry-replay')?.addEventListener('click', () => executeComparison(true));
+        button.disabled = false;
+        return;
+      }
       const ranked = comparison.ranked.map(row => {
         const sourcePlatform = catalog.platforms.find(item => item.name === row.platform);
         const sourceState = { platform: sourcePlatform.id, dish: row.id, qty: 1, coupon: bestCoupon(row, 1), tip: 0, donation: 0, gold: 0 };
         return `${esc(row.restaurant)} / ${esc(row.dish)}: ${money(quote(row, sourcePlatform, sourceState).total)}`;
       }).join('<br>');
       const dropped = comparison.dropped.map(entry => `${esc(entry.option.restaurant)} / ${esc(entry.option.dish)} - ${esc(entry.reasons.join('; '))}`).join('<br>') || 'None';
-      output.innerHTML = `<p><strong>Contract:</strong> veg, quantity 1, max Rs 300, rating 4.2+, ETA 45 min, no extras, prioritize price.</p><p><strong>Compare → rank:</strong> ${comparison.ranked.length} option(s) survived; ${comparison.dropped.length} dropped.</p><p><strong>Ranked:</strong><br>${ranked}</p><p><strong>Dropped with reasons:</strong><br>${dropped}</p><p><strong>Stage cart → guard decision → fix → re-check → simulated order</strong></p><button id="run-food-task" class="button" type="button">Stage and run guarded cart</button><div id="guard-task-output"></div>`;
+      output.innerHTML = `${failNotice}<p><strong>Mode:</strong> ${esc(comparison.mode || (forceReplay ? 'fixture_replay' : 'live_agent'))}</p><p><strong>Contract:</strong> veg, quantity 1, max Rs 300, rating 4.2+, ETA 45 min, no extras, prioritize price.</p><p><strong>Compare → rank:</strong> ${comparison.ranked.length} option(s) survived; ${comparison.dropped.length} dropped.</p><p><strong>Ranked:</strong><br>${ranked}</p><p><strong>Dropped with reasons:</strong><br>${dropped}</p><p><strong>Stage cart → guard decision → fix → re-check → simulated order</strong></p><button id="run-food-task" class="button" type="button">Stage and run guarded cart</button><div id="guard-task-output"></div>`;
+      document.getElementById('retry-replay')?.addEventListener('click', () => executeComparison(true));
       document.getElementById('run-food-task').addEventListener('click', async () => {
         const taskOutput = document.getElementById('guard-task-output');
+        taskOutput.innerHTML = '<p>Staging winner and running guard checks…</p>';
         try {
-          const run = await fetch('/food/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: comparison.task_id }) });
-          if (!run.ok) throw new Error(`Guarded run failed (${run.status}).`);
+          const run = await fetch('/food/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task_id: comparison.task_id, ...(forceReplay ? { replay: true } : {}) })
+          });
+          if (!run.ok) {
+            const errJson = await run.json().catch(() => ({}));
+            throw new Error(errJson.detail || `Guarded run failed (${run.status}).`);
+          }
           const task = await run.json();
-          const types = task.events.map(event => event.type);
-          taskOutput.innerHTML = `<p><strong>${esc(task.status)}</strong>: ${esc(types.join(' → '))}</p><p>${task.status === 'done' ? 'Simulated order recorded after allow.' : 'No simulated order was recorded.'}</p>`;
+          const types = (task.events || []).map(event => event.type);
+          if (task.status === 'failed') {
+            const failedEvent = (task.events || []).find(e => e.type === 'food_run_failed' || e.type === 'food_commit_failed') || {};
+            const failReason = failedEvent.detail || failedEvent.error || 'Workflow execution error';
+            taskOutput.innerHTML = `<div class="guard-failure-banner" role="alert"><p><strong>Guarded run failed:</strong> ${esc(failReason)}</p><p>TinyFish live agent encountered an error or timeout. Switch to replay mode to see the full guarded sequence.</p><button id="retry-run-replay" class="button" type="button">Run in Replay Mode</button></div>`;
+            document.getElementById('retry-run-replay')?.addEventListener('click', () => executeComparison(true));
+          } else {
+            taskOutput.innerHTML = `<p><strong>${esc(task.status)}</strong>: ${esc(types.join(' → '))}</p><p>${task.status === 'done' ? 'Simulated order recorded after allow.' : 'No simulated order was recorded.'}</p>`;
+          }
         } catch (error) {
-          taskOutput.innerHTML = `<p role="alert">${esc(error.message)}</p>`;
+          taskOutput.innerHTML = `<div class="guard-failure-banner" role="alert"><p><strong>Guarded run failed:</strong> ${esc(error.message)}</p><button id="retry-run-replay" class="button" type="button">Switch to Replay Mode</button></div>`;
+          document.getElementById('retry-run-replay')?.addEventListener('click', () => executeComparison(true));
         }
       });
+      button.disabled = false;
     } catch (error) {
-      output.innerHTML = `<p role="alert">${esc(error.message)}</p>`;
+      output.innerHTML = `<div class="guard-failure-banner" role="alert"><p><strong>Comparison error:</strong> ${esc(error.message)}</p><p>Live platform check or TinyFish API failed. You can switch to replay mode:</p><button id="retry-replay" class="button" type="button">Switch to Replay Mode</button></div>`;
+      document.getElementById('retry-replay')?.addEventListener('click', () => executeComparison(true));
       button.disabled = false;
     }
-  });
+  }
+
+  button.addEventListener('click', () => executeComparison(false));
 }
 async function init() {
   try {

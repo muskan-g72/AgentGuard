@@ -97,7 +97,8 @@
         "A little more spice would have suited my taste."
       ],
       "url": "/foodhub/dish.html?platform=foodhub&dish=fh-spice-route-paneer",
-      "id": "fh-spice-route-paneer"
+      "id": "fh-spice-route-paneer",
+      "image": "/food-demo/images/spice-route-paneer.jpg"
     },
     {
       "platform": "FoodHub",
@@ -120,7 +121,8 @@
         "The portion was generous and carefully packed."
       ],
       "url": "/foodhub/dish.html?platform=foodhub&dish=fh-biryani-hub-chicken",
-      "id": "fh-biryani-hub-chicken"
+      "id": "fh-biryani-hub-chicken",
+      "image": "/food-demo/images/biryani-hub-chicken.jpg"
     },
     {
       "platform": "FoodHub",
@@ -143,7 +145,8 @@
         "The onions gave the paneer a welcome crunch."
       ],
       "url": "/foodhub/dish.html?platform=foodhub&dish=fh-roll-point-paneer",
-      "id": "fh-roll-point-paneer"
+      "id": "fh-roll-point-paneer",
+      "image": "/food-demo/images/roll-point-paneer-roll.jpg"
     },
     {
       "platform": "QuickBite",
@@ -174,7 +177,8 @@
         "A little more spice would have suited my taste."
       ],
       "url": "/quickbite/dish.html?platform=quickbite&dish=qb-spice-route-paneer",
-      "id": "qb-spice-route-paneer"
+      "id": "qb-spice-route-paneer",
+      "image": "/food-demo/images/spice-route-paneer.jpg"
     },
     {
       "platform": "QuickBite",
@@ -197,7 +201,8 @@
         "The packing kept the rice warm in this fictional delivery."
       ],
       "url": "/quickbite/dish.html?platform=quickbite&dish=qb-biryani-hub-veg",
-      "id": "qb-biryani-hub-veg"
+      "id": "qb-biryani-hub-veg",
+      "image": "/food-demo/images/biryani-hub-veg.jpg"
     },
     {
       "platform": "DineDash",
@@ -220,7 +225,8 @@
         "A little more spice would have suited my taste."
       ],
       "url": "/dinedash/dish.html?platform=dinedash&dish=dd-spice-route-paneer",
-      "id": "dd-spice-route-paneer"
+      "id": "dd-spice-route-paneer",
+      "image": "/food-demo/images/spice-route-paneer.jpg"
     },
     {
       "platform": "DineDash",
@@ -251,7 +257,8 @@
         "The roti stayed soft in the separate compartment."
       ],
       "url": "/dinedash/dish.html?platform=dinedash&dish=dd-green-bowl-thali",
-      "id": "dd-green-bowl-thali"
+      "id": "dd-green-bowl-thali",
+      "image": "/food-demo/images/green-bowl-veg-thali.jpg"
     }
   ],
   "source_commit": "4fa9c6f685c441248c5f8b5cc1a25746d6dfbd2e",

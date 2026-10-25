@@ -1,0 +1,62 @@
+{
+  "platform": "dinedash",
+  "raw": [
+    {
+      "coupons": [],
+      "dish": "Paneer Butter Masala combo",
+      "eta_minutes": 30,
+      "fees": {
+        "delivery": 30,
+        "packaging": 0,
+        "platform": 3
+      },
+      "item_price": 275,
+      "platform": "DineDash",
+      "rating": 4.4,
+      "rating_count": 950,
+      "restaurant": "Spice Route",
+      "review_snippets": [
+        "The paneer was soft, with a creamy, mild sauce.",
+        "The combo felt filling and travelled neatly.",
+        "A little more spice would have suited my taste."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/dinedash/dish.html?platform=dinedash&dish=dd-spice-route-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": true
+    },
+    {
+      "coupons": [
+        {
+          "code": "WELCOME30",
+          "max_discount": null,
+          "min_order": 200,
+          "type": "flat",
+          "value": 30
+        }
+      ],
+      "dish": "Veg Thali",
+      "eta_minutes": 30,
+      "fees": {
+        "delivery": 20,
+        "packaging": 10,
+        "platform": 5
+      },
+      "item_price": 240,
+      "platform": "DineDash",
+      "rating": 4.1,
+      "rating_count": 300,
+      "restaurant": "Green Bowl",
+      "review_snippets": [
+        "The dal and rice made a comforting combination.",
+        "The portions were balanced, with a small pickle serving.",
+        "The roti stayed soft in the separate compartment."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/dinedash/dish.html?platform=dinedash&dish=dd-green-bowl-thali&qty=1&coupon=WELCOME30&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": true
+    }
+  ],
+  "run_id": "3c7b8af4-9497-491f-a827-d071a6a41962",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T01:59:58.005615+00:00"
+}

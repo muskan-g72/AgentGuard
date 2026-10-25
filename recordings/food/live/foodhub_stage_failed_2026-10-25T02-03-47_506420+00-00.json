@@ -1,0 +1,11 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "error": "Food staging failed after one JSON retry: TinyFish returned HTTP 502; no approval or order was created. | 1 validation error for StagedFoodCart\ncart_id\n  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_short"
+  },
+  "run_id": "aab3ba3c-d475-48d0-a8da-fe5d7ad220ca",
+  "scenario": "extras",
+  "source": "live",
+  "step": "stage_failed",
+  "timestamp": "2026-10-25T02:03:47.506420+00:00"
+}

@@ -1,0 +1,324 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "browser_config": {
+      "proxy_country_code": null,
+      "proxy_enabled": false
+    },
+    "created_at": "2026-10-25T01:58:24Z",
+    "error": null,
+    "finished_at": "2026-10-25T01:59:33Z",
+    "goal": "Navigate to https://demo-booking-tau.vercel.app/foodhub/ to complete the goal: Compare every listed dish on this food platform. Open each dish detail page and extract ONLY visible page data. For every dish return platform, restaurant, dish, veg, item_price, rating, rating_count, eta_minutes, fees (delivery, platform, packaging), coupons (code, type flat or percent, value, max_discount or null, min_order), review_snippets, and the detail-page URL. All money must be integer rupees. Do not add anything to a cart. Do not start checkout. Do not place an order. If a field is not visible, do not invent it; omit that dish instead. Return only JSON matching the requested schema. Return only the JSON object, with no Markdown or explanation.",
+    "num_of_steps": 9,
+    "output_schema": {
+      "properties": {
+        "options": {
+          "items": {
+            "properties": {
+              "coupons": {
+                "items": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "max_discount": {
+                      "minimum": 0,
+                      "nullable": true,
+                      "type": "integer"
+                    },
+                    "min_order": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "type": {
+                      "enum": [
+                        "flat",
+                        "percent"
+                      ],
+                      "type": "string"
+                    },
+                    "value": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "type",
+                    "value",
+                    "max_discount",
+                    "min_order"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "dish": {
+                "type": "string"
+              },
+              "eta_minutes": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "fees": {
+                "properties": {
+                  "delivery": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "packaging": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "platform": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "delivery",
+                  "platform",
+                  "packaging"
+                ],
+                "type": "object"
+              },
+              "item_price": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "platform": {
+                "type": "string"
+              },
+              "rating": {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              "rating_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "restaurant": {
+                "type": "string"
+              },
+              "review_snippets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "url": {
+                "type": "string"
+              },
+              "veg": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "platform",
+              "restaurant",
+              "dish",
+              "veg",
+              "item_price",
+              "rating",
+              "rating_count",
+              "eta_minutes",
+              "fees",
+              "coupons",
+              "review_snippets",
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "options"
+      ],
+      "type": "object"
+    },
+    "profile_attached": false,
+    "profile_id": null,
+    "result": {
+      "options": [
+        {
+          "coupons": [
+            {
+              "code": "FIRST50",
+              "max_discount": 100,
+              "min_order": 300,
+              "type": "percent",
+              "value": 50
+            }
+          ],
+          "dish": "Paneer Butter Masala combo",
+          "eta_minutes": 35,
+          "fees": {
+            "delivery": 0,
+            "packaging": 15,
+            "platform": 5
+          },
+          "item_price": 260,
+          "platform": "FoodHub",
+          "rating": 4.4,
+          "rating_count": 1200,
+          "restaurant": "Spice Route",
+          "review_snippets": [
+            "The paneer was soft, with a creamy, mild sauce.",
+            "The combo felt filling and travelled neatly.",
+            "A little more spice would have suited my taste."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/foodhub/dish.html?platform=foodhub&dish=fh-spice-route-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": true
+        },
+        {
+          "coupons": [],
+          "dish": "Chicken Biryani",
+          "eta_minutes": 40,
+          "fees": {
+            "delivery": 0,
+            "packaging": 10,
+            "platform": 5
+          },
+          "item_price": 220,
+          "platform": "FoodHub",
+          "rating": 4.5,
+          "rating_count": 900,
+          "restaurant": "Biryani Hub",
+          "review_snippets": [
+            "Fragrant rice and tender chicken in the demo bowl.",
+            "The raita paired nicely with the warm spices.",
+            "The portion was generous and carefully packed."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/foodhub/dish.html?platform=foodhub&dish=fh-biryani-hub-chicken&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": false
+        },
+        {
+          "coupons": [],
+          "dish": "Paneer Kathi Roll",
+          "eta_minutes": 25,
+          "fees": {
+            "delivery": 15,
+            "packaging": 5,
+            "platform": 5
+          },
+          "item_price": 150,
+          "platform": "FoodHub",
+          "rating": 3.9,
+          "rating_count": 210,
+          "restaurant": "Roll Point",
+          "review_snippets": [
+            "The filling was tasty, though the wrap softened.",
+            "A handy snack-sized option for a quick lunch.",
+            "The onions gave the paneer a welcome crunch."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/foodhub/dish.html?platform=foodhub&dish=fh-roll-point-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": true
+        }
+      ]
+    },
+    "run_id": "712e0a50-e928-4aff-a73b-01c86d9cfe1f",
+    "started_at": "2026-10-25T01:58:27Z",
+    "status": "COMPLETED",
+    "steps": [
+      {
+        "action": "Visit food platform to list all dishes",
+        "duration": "1.0s",
+        "html": null,
+        "id": "4f78fdd2-1025-4996-af72-60e338a53d5e",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/4f78fdd2-1025-4996-af72-60e338a53d5e/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:28Z"
+      },
+      {
+        "action": "Extract all dish details from food platform",
+        "duration": "2.2s",
+        "html": null,
+        "id": "e66e9bcc-6e62-4f90-b5fd-9337962c4e4d",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/e66e9bcc-6e62-4f90-b5fd-9337962c4e4d/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:31Z"
+      },
+      {
+        "action": "Visit Paneer Butter Masala dish detail page",
+        "duration": "1.0s",
+        "html": null,
+        "id": "53107d26-36a8-429f-b398-4935f3498666",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/53107d26-36a8-429f-b398-4935f3498666/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:36Z"
+      },
+      {
+        "action": "Extract all dish detail page data for Paneer Butter Masala",
+        "duration": "1.9s",
+        "html": null,
+        "id": "3e0a7bc6-e473-485e-af61-864ace865ff5",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/3e0a7bc6-e473-485e-af61-864ace865ff5/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:46Z"
+      },
+      {
+        "action": "Visit Chicken Biryani dish detail page",
+        "duration": "0.9s",
+        "html": null,
+        "id": "4e3ab472-b8c8-4d53-9751-28247f3990de",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/4e3ab472-b8c8-4d53-9751-28247f3990de/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:50Z"
+      },
+      {
+        "action": "Extract all dish detail page data for Chicken Biryani",
+        "duration": "1.9s",
+        "html": null,
+        "id": "ef3f8cb7-473a-4465-954f-7cb44913ac3e",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/ef3f8cb7-473a-4465-954f-7cb44913ac3e/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:53Z"
+      },
+      {
+        "action": "Visit Paneer Kathi Roll dish detail page",
+        "duration": "0.9s",
+        "html": null,
+        "id": "4dc33d85-2464-40ef-9e7e-8683725d570f",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/4dc33d85-2464-40ef-9e7e-8683725d570f/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:56Z"
+      },
+      {
+        "action": "Extract all dish detail page data for Paneer Kathi Roll",
+        "duration": "1.9s",
+        "html": null,
+        "id": "694e5021-d8cb-4df5-b2eb-16fe764c6fc6",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/694e5021-d8cb-4df5-b2eb-16fe764c6fc6/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:58:59Z"
+      },
+      {
+        "action": "Return compiled JSON with all dish details",
+        "duration": "0.0s",
+        "html": null,
+        "id": "17215c77-619c-4465-852f-b91286122202",
+        "screenshot": "https://agent.tinyfish.ai/runs/712e0a50-e928-4aff-a73b-01c86d9cfe1f/steps/17215c77-619c-4465-852f-b91286122202/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:59:30Z"
+      },
+      {
+        "action": "Task completed",
+        "duration": null,
+        "html": null,
+        "id": "291d58cc-5a8e-4b50-8f9a-cbbd871841d2",
+        "screenshot": null,
+        "status": "COMPLETED",
+        "timestamp": "2026-10-25T01:59:32Z"
+      }
+    ],
+    "streaming_url": "https://ip-204-236-178-137.tetra-data.production.tinyfish.io/tf-b34e6156-ab9b-4ac3-afec-616cf1d84b97/stream/0",
+    "video_url": null
+  },
+  "run_id": "712e0a50-e928-4aff-a73b-01c86d9cfe1f",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T01:59:57.991497+00:00"
+}

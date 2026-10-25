@@ -14,7 +14,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -40,6 +40,26 @@ _POLL_SECONDS = 0.25
 _DEFAULT_TIMEOUT_SECONDS = 120
 
 
+class PlatformOptions(list):
+    """List of FoodOption instances with run metadata attached."""
+
+    def __init__(self, items=(), *, run_id: str | None = None, duration_seconds: float = 0.0):
+        super().__init__(items)
+        self.run_id = run_id
+        self.duration_seconds = duration_seconds
+
+
+@dataclass(frozen=True)
+class PlatformRun:
+    platform: str
+    url: str
+    success: bool
+    options: list[FoodOption]
+    reason: str | None = None
+    run_id: str | None = None
+    duration_seconds: float = 0.0
+
+
 @dataclass(frozen=True)
 class RejectedOption:
     option: FoodOption
@@ -50,6 +70,7 @@ class RejectedOption:
 class ComparisonResult:
     options: list[FoodOption]
     failures: dict[str, str]
+    runs: dict[str, PlatformRun] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -82,12 +103,23 @@ def _load_fixture(platform: str) -> dict:
     return value
 
 
-def _save_live(platform: str, raw: object, step: str) -> None:
+def _save_live(platform: str, raw: object, step: str, *, scenario: str = "clean") -> Path:
     directory = _RECORDINGS / "live"
     directory.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-    path = directory / f"{platform}__{step}__{timestamp}__{uuid4().hex}.json"
-    path.write_text(json.dumps(raw, indent=2, sort_keys=True), encoding="utf-8")
+    timestamp = datetime.now(UTC).isoformat()
+    run_id = raw.get("run_id") if isinstance(raw, dict) else None
+    payload = {
+        "source": "live",
+        "timestamp": timestamp,
+        "run_id": run_id,
+        "scenario": scenario,
+        "platform": platform,
+        "step": step,
+        "raw": raw,
+    }
+    path = directory / f"{platform}__{step}__{timestamp.replace(':', '-')}__{uuid4().hex[:8]}.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return path
 
 
 def _option_schema() -> dict:
@@ -184,7 +216,10 @@ def _parse_options(raw: object) -> list[FoodOption]:
 
 
 def _parse_staged_cart(raw: object) -> StagedFoodCart:
-    return StagedFoodCart.model_validate(_result_object(raw).get("cart"))
+    data = dict(_result_object(raw).get("cart", {}))
+    if not data.get("cart_id"):
+        data["cart_id"] = f"live_cart_{uuid4().hex[:8]}"
+    return StagedFoodCart.model_validate(data)
 
 
 def _with_coupon_evidence(staged: StagedFoodCart, option: FoodOption) -> StagedFoodCart:
@@ -212,30 +247,40 @@ def _wait_for_result(run_id: str, *, timeout_seconds: int) -> dict:
     raise FoodCompareError(f"TinyFish food run exceeded {timeout_seconds} seconds.")
 
 
-def _live_options(platform_url: str, *, retry: bool, timeout_seconds: int) -> list[FoodOption]:
+def _live_options(platform_url: str, *, retry: bool, timeout_seconds: int) -> PlatformOptions:
     platform = _platform_name(platform_url)
+    start_t = time.monotonic()
     queued = start_agent_async(platform_url, _comparison_goal(retry=retry), output_schema=_option_schema(), timeout_seconds=timeout_seconds)
     run_id = queued.get("run_id")
     if not isinstance(run_id, str) or not run_id:
         raise FoodCompareError("TinyFish did not return a run_id for food comparison.")
-    raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
+    try:
+        raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
+    except Exception as error:
+        setattr(error, "run_id", run_id)
+        setattr(error, "duration_seconds", time.monotonic() - start_t)
+        _save_live(platform, {"run_id": run_id, "error": str(error), "status": "FAILED"}, "compare_failed")
+        raise
+    duration = time.monotonic() - start_t
     _save_live(platform, raw, "compare")
-    return _parse_options(raw)
+    opts = _parse_options(raw)
+    return PlatformOptions(opts, run_id=run_id, duration_seconds=duration)
 
 
-def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> list[FoodOption]:
+def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS, replay: bool | None = None) -> list[FoodOption]:
     """Extract visible dish options from one platform, with one parse retry."""
 
     platform = _platform_name(platform_url)
     scenario = parse_qs(urlparse(platform_url).query).get("scenario", [None])[0]
-    if os.getenv("REPLAY") == "1":
+    is_replay = replay if replay is not None else (os.getenv("REPLAY") == "1")
+    if is_replay:
         options = [FoodOption.model_validate(option) for option in _load_fixture(platform).get("options", [])]
         if scenario:
             options = [
                 opt.model_copy(update={"url": f"{opt.url}&scenario={scenario}" if "?" in opt.url else f"{opt.url}?scenario={scenario}"})
                 for opt in options
             ]
-        return options
+        return PlatformOptions(options, run_id="fixture", duration_seconds=0.0)
     first_error: Exception | None = None
     for retry in (False, True):
         try:
@@ -247,20 +292,29 @@ def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEO
     raise AssertionError("unreachable")
 
 
-def compare_all(platform_urls: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> ComparisonResult:
+def compare_all(platform_urls: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS, replay: bool | None = None) -> ComparisonResult:
     """Start all supplied platform comparisons concurrently and retain partial results."""
 
     options: list[FoodOption] = []
     failures: dict[str, str] = {}
+    runs: dict[str, PlatformRun] = {}
+    start_time = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(platform_urls) or 1) as executor:
-        futures = {executor.submit(compare_platform, url, timeout_seconds=timeout_seconds): _platform_name(url) for url in platform_urls}
+        futures = {executor.submit(compare_platform, url, timeout_seconds=timeout_seconds, replay=replay): (_platform_name(url), url) for url in platform_urls}
         for future in as_completed(futures):
-            platform = futures[future]
+            platform, url = futures[future]
             try:
-                options.extend(future.result())
+                res = future.result()
+                options.extend(res)
+                run_id = getattr(res, "run_id", None)
+                dur = getattr(res, "duration_seconds", time.monotonic() - start_time)
+                runs[platform] = PlatformRun(platform=platform, url=url, success=True, options=list(res), run_id=run_id, duration_seconds=dur)
             except Exception as error:
                 failures[platform] = str(error)
-    return ComparisonResult(options=options, failures=failures)
+                run_id = getattr(error, "run_id", None)
+                dur = getattr(error, "duration_seconds", time.monotonic() - start_time)
+                runs[platform] = PlatformRun(platform=platform, url=url, success=False, options=[], reason=str(error), run_id=run_id, duration_seconds=dur)
+    return ComparisonResult(options=options, failures=failures, runs=runs)
 
 
 def coupon_discount(option: FoodOption) -> int:
@@ -293,12 +347,13 @@ def rank_options(options: list[FoodOption], contract: FoodContract) -> RankingRe
     )
 
 
-def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> StagedFoodCart:
+def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS, replay: bool | None = None) -> StagedFoodCart:
     """Stage the selected food cart, retaining extras as evidence and never ordering."""
 
     platform = _platform_name(option.url)
     scenario = parse_qs(urlparse(option.url).query).get("scenario", ["clean"])[0]
-    if os.getenv("REPLAY") == "1":
+    is_replay = replay if replay is not None else (os.getenv("REPLAY") == "1")
+    if is_replay:
         fixture = _load_fixture(platform)
         try:
             staged = StagedFoodCart.model_validate(fixture["staged_carts"][scenario])
@@ -309,13 +364,24 @@ def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds:
     first_error: Exception | None = None
     for retry in (False, True):
         try:
+            start_t = time.monotonic()
             queued = start_agent_async(option.url, _staging_goal(option, contract, retry=retry), output_schema=_staged_cart_schema(), timeout_seconds=timeout_seconds)
             run_id = queued.get("run_id")
             if not isinstance(run_id, str) or not run_id:
                 raise FoodCompareError("TinyFish did not return a run_id for food staging.")
-            raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
-            _save_live(platform, raw, "stage")
-            return _with_coupon_evidence(_parse_staged_cart(raw), option)
+            try:
+                raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
+            except Exception as error:
+                setattr(error, "run_id", run_id)
+                setattr(error, "duration_seconds", time.monotonic() - start_t)
+                _save_live(platform, {"run_id": run_id, "error": str(error), "status": "FAILED"}, "stage_failed", scenario=scenario)
+                raise
+            duration = time.monotonic() - start_t
+            _save_live(platform, raw, "stage", scenario=scenario)
+            staged = _with_coupon_evidence(_parse_staged_cart(raw), option)
+            object.__setattr__(staged, "run_id", run_id) if hasattr(staged, "__dict__") else None
+            object.__setattr__(staged, "duration_seconds", duration) if hasattr(staged, "__dict__") else None
+            return staged
         except (FoodCompareError, TinyFishError, ValidationError, json.JSONDecodeError) as error:
             if retry:
                 raise FoodCompareError(f"Food staging failed after one JSON retry: {first_error} | {error}") from error
@@ -323,11 +389,12 @@ def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds:
     raise AssertionError("unreachable")
 
 
-def fix_staged_cart(option: FoodOption, cart: StagedFoodCart, remove_item_ids: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> StagedFoodCart:
+def fix_staged_cart(option: FoodOption, cart: StagedFoodCart, remove_item_ids: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS, replay: bool | None = None) -> StagedFoodCart:
     """Remove only checker-identified food extras and return freshly staged evidence."""
 
     platform = _platform_name(option.url)
-    if os.getenv("REPLAY") == "1":
+    is_replay = replay if replay is not None else (os.getenv("REPLAY") == "1")
+    if is_replay:
         unknown = set(remove_item_ids) - {item.id for item in cart.items}
         if unknown:
             raise FoodCompareError("Food fix referenced an item that is not in the staged cart.")
@@ -336,6 +403,7 @@ def fix_staged_cart(option: FoodOption, cart: StagedFoodCart, remove_item_ids: l
     first_error: Exception | None = None
     for retry in (False, True):
         try:
+            start_t = time.monotonic()
             queued = start_agent_async(option.url, _fix_goal(option, remove_item_ids, retry=retry), output_schema=_staged_cart_schema(), timeout_seconds=timeout_seconds)
             run_id = queued.get("run_id")
             if not isinstance(run_id, str) or not run_id:
@@ -350,11 +418,12 @@ def fix_staged_cart(option: FoodOption, cart: StagedFoodCart, remove_item_ids: l
     raise AssertionError("unreachable")
 
 
-def commit_staged_order(option: FoodOption, cart: StagedFoodCart, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> dict:
+def commit_staged_order(option: FoodOption, cart: StagedFoodCart, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS, replay: bool | None = None) -> dict:
     """Commit only the already-allowed simulated food order."""
 
     platform = _platform_name(option.url)
-    if os.getenv("REPLAY") == "1":
+    is_replay = replay if replay is not None else (os.getenv("REPLAY") == "1")
+    if is_replay:
         return {"order_id": f"food_replay_{platform}_{cart.cart_id}", "total": cart.total}
     queued = start_agent_async(option.url, _commit_goal(option, cart), output_schema={
         "type": "object", "properties": {"order_id": {"type": "string"}, "total": {"type": "integer", "minimum": 0}},
@@ -364,7 +433,7 @@ def commit_staged_order(option: FoodOption, cart: StagedFoodCart, *, timeout_sec
     if not isinstance(run_id, str) or not run_id:
         raise FoodCompareError("TinyFish did not return a run_id for food commit.")
     raw = _wait_for_result(run_id, timeout_seconds=timeout_seconds)
-    _save_live(platform, raw, "commit")
+    _save_live(platform, raw, "commit", scenario="simulated")
     result = _result_object(raw)
     if not isinstance(result.get("order_id"), str) or not result["order_id"] or type(result.get("total")) is not int:
         raise FoodCompareError("TinyFish returned an invalid simulated food order result.")

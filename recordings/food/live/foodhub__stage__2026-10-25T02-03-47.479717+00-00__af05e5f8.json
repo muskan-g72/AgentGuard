@@ -1,0 +1,281 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "browser_config": {
+      "proxy_country_code": null,
+      "proxy_enabled": false
+    },
+    "created_at": "2026-10-25T02:02:14Z",
+    "error": null,
+    "finished_at": "2026-10-25T02:03:36Z",
+    "goal": "Navigate to https://demo-booking-tau.vercel.app/foodhub/dish.html?platform=foodhub&dish=fh-spice-route-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean&scenario=extras to complete the goal: Open the visible detail page for Spice Route: Paneer Butter Masala combo. Add exactly quantity 1 to the cart. Choose and apply only the single best eligible coupon: eligible means item_price is at least the coupon minimum order; for percent coupons cap the discount at max_discount. Go to checkout and inspect the cart. Do NOT click Place order, Pay, Confirm, Submit, or any equivalent final-action button. Return only JSON with cart_id, items (id, type dish|tip|donation|membership|fee, integer price), coupon_applied, quantity, integer total, eta_minutes, veg, and hidden_text. Include preselected tip, donation, or membership as items; do not remove them. Do not invent missing values. Return only the JSON object, with no Markdown or explanation.",
+    "num_of_steps": 14,
+    "output_schema": {
+      "properties": {
+        "cart": {
+          "properties": {
+            "cart_id": {
+              "type": "string"
+            },
+            "coupon_applied": {
+              "nullable": true,
+              "type": "string"
+            },
+            "eta_minutes": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "hidden_text": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "items": {
+              "items": {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "price": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "enum": [
+                      "dish",
+                      "tip",
+                      "donation",
+                      "membership",
+                      "fee"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "price"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "quantity": {
+              "minimum": 1,
+              "nullable": true,
+              "type": "integer"
+            },
+            "total": {
+              "minimum": 0,
+              "nullable": true,
+              "type": "integer"
+            },
+            "veg": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cart_id",
+            "items",
+            "coupon_applied",
+            "quantity",
+            "total",
+            "eta_minutes",
+            "veg",
+            "hidden_text"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "cart"
+      ],
+      "type": "object"
+    },
+    "profile_attached": false,
+    "profile_id": null,
+    "result": {
+      "cart": {
+        "cart_id": "",
+        "coupon_applied": "none",
+        "eta_minutes": 35,
+        "hidden_text": [
+          "FIRST50 coupon is not eligible because item_price (260) is less than minimum order value (300)"
+        ],
+        "items": [
+          {
+            "id": "fh-spice-route-paneer",
+            "price": 260,
+            "type": "dish"
+          },
+          {
+            "id": "delivery-fee",
+            "price": 0,
+            "type": "fee"
+          },
+          {
+            "id": "platform-fee",
+            "price": 5,
+            "type": "fee"
+          },
+          {
+            "id": "packaging-fee",
+            "price": 15,
+            "type": "fee"
+          }
+        ],
+        "quantity": 1,
+        "total": 280,
+        "veg": true
+      }
+    },
+    "run_id": "ca6db5fc-2e5a-474c-b5fa-6248fb4d6632",
+    "started_at": "2026-10-25T02:02:23Z",
+    "status": "COMPLETED",
+    "steps": [
+      {
+        "action": "Visit the foodhub dish page for Spice Route Paneer Butter Masala",
+        "duration": "1.0s",
+        "html": null,
+        "id": "124b4b25-e84b-454b-86fe-2182ddb471d5",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/124b4b25-e84b-454b-86fe-2182ddb471d5/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:24Z"
+      },
+      {
+        "action": "Get full page details about the dish, coupons, and cart options",
+        "duration": "1.7s",
+        "html": null,
+        "id": "b2baddcb-45c2-416f-a4f8-0787179f7d97",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/b2baddcb-45c2-416f-a4f8-0787179f7d97/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:27Z"
+      },
+      {
+        "action": "Get visual layout of the dish detail page",
+        "duration": "2.2s",
+        "html": null,
+        "id": "e0c91d70-f6a2-468a-abfc-09b6f0918049",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/e0c91d70-f6a2-468a-abfc-09b6f0918049/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:35Z"
+      },
+      {
+        "action": "Extract all page content including prices, coupons, and fees",
+        "duration": "1.7s",
+        "html": null,
+        "id": "b1fd2992-3936-4da8-939a-8bc1b9778134",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/b1fd2992-3936-4da8-939a-8bc1b9778134/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:40Z"
+      },
+      {
+        "action": "Get detailed text from the page for all relevant info",
+        "duration": "2.0s",
+        "html": null,
+        "id": "114759a4-3c6e-4a1d-b5cf-098d2a692640",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/114759a4-3c6e-4a1d-b5cf-098d2a692640/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:43Z"
+      },
+      {
+        "action": "Find coupon selector, add to cart button, and checkout options",
+        "duration": "1.7s",
+        "html": null,
+        "id": "539ec9dd-8eae-46d6-9149-076eecc4b9f4",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/539ec9dd-8eae-46d6-9149-076eecc4b9f4/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:48Z"
+      },
+      {
+        "action": "Go to checkout page to inspect cart details",
+        "duration": "1.0s",
+        "html": null,
+        "id": "0010e81f-1141-4c75-88ae-2baee5d87ecb",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/0010e81f-1141-4c75-88ae-2baee5d87ecb/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:51Z"
+      },
+      {
+        "action": "Get full checkout page details including all fees and items",
+        "duration": "1.8s",
+        "html": null,
+        "id": "905cc366-b24d-45e9-b177-f36a492c0c54",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/905cc366-b24d-45e9-b177-f36a492c0c54/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:02:55Z"
+      },
+      {
+        "action": "Extract complete checkout cart details",
+        "duration": "2.0s",
+        "html": null,
+        "id": "607f50c8-bed0-4fdb-8cd6-b6fadeb1e7be",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/607f50c8-bed0-4fdb-8cd6-b6fadeb1e7be/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:03:00Z"
+      },
+      {
+        "action": "Apply FIRST50 coupon to see the discounted total",
+        "duration": "0.9s",
+        "html": null,
+        "id": "98c1a064-d060-4c3d-a32a-56e04693ff51",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/98c1a064-d060-4c3d-a32a-56e04693ff51/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:03:05Z"
+      },
+      {
+        "action": "Get cart state with FIRST50 coupon applied",
+        "duration": "1.5s",
+        "html": null,
+        "id": "5c9d6bba-4d30-47c9-871e-18503695ae27",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/5c9d6bba-4d30-47c9-871e-18503695ae27/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:03:08Z"
+      },
+      {
+        "action": "Go to checkout with no coupon since FIRST50 is not eligible",
+        "duration": "0.9s",
+        "html": null,
+        "id": "2ac9be1e-9145-4104-b2fa-97b9b6124efc",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/2ac9be1e-9145-4104-b2fa-97b9b6124efc/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:03:13Z"
+      },
+      {
+        "action": "Find cart_id and confirm all cart details",
+        "duration": "1.5s",
+        "html": null,
+        "id": "3dc4d5ab-cf57-4789-a844-0b189e43c4fd",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/3dc4d5ab-cf57-4789-a844-0b189e43c4fd/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:03:22Z"
+      },
+      {
+        "action": "Return cart details with no coupon since FIRST50 requires minimum order of 300",
+        "duration": "0.0s",
+        "html": null,
+        "id": "ba410cd2-3519-4c06-99bb-95a94e7d1c85",
+        "screenshot": "https://agent.tinyfish.ai/runs/ca6db5fc-2e5a-474c-b5fa-6248fb4d6632/steps/ba410cd2-3519-4c06-99bb-95a94e7d1c85/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:03:30Z"
+      },
+      {
+        "action": "Task completed",
+        "duration": null,
+        "html": null,
+        "id": "e5054204-cd25-455a-a490-1c7cfb03e8dc",
+        "screenshot": null,
+        "status": "COMPLETED",
+        "timestamp": "2026-10-25T02:03:36Z"
+      }
+    ],
+    "streaming_url": "https://ip-54-177-234-113.tetra-data.production.tinyfish.io/tf-61dfc157-9e95-4bf0-9c39-5cece5009bae/stream/0",
+    "video_url": null
+  },
+  "run_id": "ca6db5fc-2e5a-474c-b5fa-6248fb4d6632",
+  "scenario": "clean",
+  "source": "live",
+  "step": "stage",
+  "timestamp": "2026-10-25T02:03:47.479717+00:00"
+}

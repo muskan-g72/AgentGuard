@@ -1,0 +1,84 @@
+{
+  "platform": "foodhub",
+  "raw": [
+    {
+      "coupons": [
+        {
+          "code": "FIRST50",
+          "max_discount": 100,
+          "min_order": 300,
+          "type": "percent",
+          "value": 50
+        }
+      ],
+      "dish": "Paneer Butter Masala combo",
+      "eta_minutes": 35,
+      "fees": {
+        "delivery": 0,
+        "packaging": 15,
+        "platform": 5
+      },
+      "item_price": 260,
+      "platform": "FoodHub",
+      "rating": 4.4,
+      "rating_count": 1200,
+      "restaurant": "Spice Route",
+      "review_snippets": [
+        "The paneer was soft, with a creamy, mild sauce.",
+        "The combo felt filling and travelled neatly.",
+        "A little more spice would have suited my taste."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/foodhub/?platform=foodhub&dish=fh-spice-route-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": true
+    },
+    {
+      "coupons": [],
+      "dish": "Chicken Biryani",
+      "eta_minutes": 40,
+      "fees": {
+        "delivery": 0,
+        "packaging": 10,
+        "platform": 5
+      },
+      "item_price": 220,
+      "platform": "FoodHub",
+      "rating": 4.5,
+      "rating_count": 900,
+      "restaurant": "Biryani Hub",
+      "review_snippets": [
+        "Fragrant rice and tender chicken in the demo bowl.",
+        "The raita paired nicely with the warm spices.",
+        "The portion was generous and carefully packed."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/foodhub/?platform=foodhub&dish=fh-biryani-hub-chicken&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": false
+    },
+    {
+      "coupons": [],
+      "dish": "Paneer Kathi Roll",
+      "eta_minutes": 25,
+      "fees": {
+        "delivery": 15,
+        "packaging": 5,
+        "platform": 5
+      },
+      "item_price": 150,
+      "platform": "FoodHub",
+      "rating": 3.9,
+      "rating_count": 210,
+      "restaurant": "Roll Point",
+      "review_snippets": [
+        "The filling was tasty, though the wrap softened.",
+        "A handy snack-sized option for a quick lunch.",
+        "The onions gave the paneer a welcome crunch."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/foodhub/?platform=foodhub&dish=fh-roll-point-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": true
+    }
+  ],
+  "run_id": "63691e87-ae1e-4cd4-9f0b-5dc8494b74c5",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T02:10:39.423447+00:00"
+}

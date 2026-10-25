@@ -1,0 +1,50 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "cart_id": "NA",
+    "coupon_applied": null,
+    "coupon_details": null,
+    "eta_minutes": 35,
+    "hidden_text": [
+      "All dishes, ratings and reviews are synthetic. No real orders or payments.",
+      "Synthetic reviews, written for this demo.",
+      "Simulated checkout only. No payment details needed.",
+      "Placing an order means you are responsible for paying the cost of the food. You must have sufficient funds on the card or bank account to pay for the food.",
+      "All dishes, ratings and reviews are synthetic. No real orders or payments."
+    ],
+    "items": [
+      {
+        "id": "paneer-butter-masala",
+        "price": 260,
+        "type": "dish",
+        "veg": null
+      },
+      {
+        "id": "tip",
+        "price": 30,
+        "type": "tip",
+        "veg": null
+      },
+      {
+        "id": "donation",
+        "price": 10,
+        "type": "donation",
+        "veg": null
+      },
+      {
+        "id": "fee",
+        "price": 20,
+        "type": "fee",
+        "veg": null
+      }
+    ],
+    "quantity": 1,
+    "total": 320,
+    "veg": true
+  },
+  "run_id": "7b562352-1797-42cb-89e2-addb08f5fd99",
+  "scenario": "extras",
+  "source": "live",
+  "step": "stage",
+  "timestamp": "2026-10-25T02:12:43.465204+00:00"
+}

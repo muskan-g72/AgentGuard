@@ -21,14 +21,17 @@ class FoodBrowser(Protocol):
 class TinyFishFoodBrowser:
     """Production adapter. Each action is a separate TinyFish run."""
 
+    def __init__(self, replay: bool | None = None) -> None:
+        self.replay = replay
+
     def stage_winner(self, option: FoodOption, contract: FoodContract) -> StagedFoodCart:
-        return stage_winner(option, contract)
+        return stage_winner(option, contract, replay=self.replay)
 
     def fix_cart(self, option: FoodOption, cart: StagedFoodCart, remove_item_ids: list[str]) -> StagedFoodCart:
-        return fix_staged_cart(option, cart, remove_item_ids)
+        return fix_staged_cart(option, cart, remove_item_ids, replay=self.replay)
 
     def commit_order(self, option: FoodOption, cart: StagedFoodCart) -> dict:
-        return commit_staged_order(option, cart)
+        return commit_staged_order(option, cart, replay=self.replay)
 
 
 def _event(store: Store, task_id: str, status: str, detail: str, event_type: str, **payload):
@@ -117,5 +120,5 @@ def run_food_task(store: Store, task_id: str, browser: FoodBrowser, *, scenario:
             commit_food_task(store, task_id, browser, option, cart, decision, guard_off=guard_off)
         return store.food_task(task_id)
     except Exception as error:
-        _event(store, task_id, "failed", "Food workflow failed before a simulated order could be committed.", "food_run_failed", error=type(error).__name__)
+        _event(store, task_id, "failed", "Food workflow failed before a simulated order could be committed.", "food_run_failed", error=type(error).__name__, detail=str(error))
         return store.food_task(task_id)

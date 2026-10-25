@@ -1,0 +1,311 @@
+{
+  "platform": "dinedash",
+  "raw": {
+    "browser_config": {
+      "proxy_country_code": null,
+      "proxy_enabled": false
+    },
+    "created_at": "2026-10-25T01:55:51Z",
+    "error": null,
+    "finished_at": "2026-10-25T01:56:56Z",
+    "goal": "Navigate to https://demo-booking-tau.vercel.app/dinedash/ to complete the goal: Compare every listed dish on this food platform. Open each dish detail page and extract ONLY visible page data. For every dish return platform, restaurant, dish, veg, item_price, rating, rating_count, eta_minutes, fees (delivery, platform, packaging), coupons (code, type flat or percent, value, max_discount or null, min_order), review_snippets, and the detail-page URL. All money must be integer rupees. Do not add anything to a cart. Do not start checkout. Do not place an order. If a field is not visible, do not invent it; omit that dish instead. Return only JSON matching the requested schema.",
+    "num_of_steps": 10,
+    "output_schema": {
+      "properties": {
+        "options": {
+          "items": {
+            "properties": {
+              "coupons": {
+                "items": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "max_discount": {
+                      "minimum": 0,
+                      "nullable": true,
+                      "type": "integer"
+                    },
+                    "min_order": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "type": {
+                      "enum": [
+                        "flat",
+                        "percent"
+                      ],
+                      "type": "string"
+                    },
+                    "value": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "type",
+                    "value",
+                    "max_discount",
+                    "min_order"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "dish": {
+                "type": "string"
+              },
+              "eta_minutes": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "fees": {
+                "properties": {
+                  "delivery": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "packaging": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "platform": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "delivery",
+                  "platform",
+                  "packaging"
+                ],
+                "type": "object"
+              },
+              "item_price": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "platform": {
+                "type": "string"
+              },
+              "rating": {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              "rating_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "restaurant": {
+                "type": "string"
+              },
+              "review_snippets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "url": {
+                "type": "string"
+              },
+              "veg": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "platform",
+              "restaurant",
+              "dish",
+              "veg",
+              "item_price",
+              "rating",
+              "rating_count",
+              "eta_minutes",
+              "fees",
+              "coupons",
+              "review_snippets",
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "options"
+      ],
+      "type": "object"
+    },
+    "profile_attached": false,
+    "profile_id": null,
+    "result": {
+      "options": [
+        {
+          "coupons": [],
+          "dish": "Paneer Butter Masala combo",
+          "eta_minutes": 30,
+          "fees": {
+            "delivery": 30,
+            "packaging": 0,
+            "platform": 3
+          },
+          "item_price": 275,
+          "platform": "DineDash",
+          "rating": 4.4,
+          "rating_count": 950,
+          "restaurant": "Spice Route",
+          "review_snippets": [
+            "The paneer was soft, with a creamy, mild sauce.",
+            "The combo felt filling and travelled neatly.",
+            "A little more spice would have suited my taste."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/dinedash/dish.html?platform=dinedash&dish=dd-spice-route-paneer&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": true
+        },
+        {
+          "coupons": [
+            {
+              "code": "WELCOME30",
+              "max_discount": null,
+              "min_order": 200,
+              "type": "flat",
+              "value": 30
+            }
+          ],
+          "dish": "Veg Thali",
+          "eta_minutes": 30,
+          "fees": {
+            "delivery": 20,
+            "packaging": 10,
+            "platform": 5
+          },
+          "item_price": 240,
+          "platform": "DineDash",
+          "rating": 4.1,
+          "rating_count": 300,
+          "restaurant": "Green Bowl",
+          "review_snippets": [
+            "The dal and rice made a comforting combination.",
+            "The portions were balanced, with a small pickle serving.",
+            "The roti stayed soft in the separate compartment."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/dinedash/dish.html?platform=dinedash&dish=dd-green-bowl-thali&qty=1&coupon=WELCOME30&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": true
+        }
+      ]
+    },
+    "run_id": "3c7b8af4-9497-491f-a827-d071a6a41962",
+    "started_at": "2026-10-25T01:55:54Z",
+    "status": "COMPLETED",
+    "steps": [
+      {
+        "action": "Navigate to food platform to list dishes",
+        "duration": "2.1s",
+        "html": null,
+        "id": "f100c9f2-7290-4257-9b61-1dd214f0c300",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/f100c9f2-7290-4257-9b61-1dd214f0c300/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:55:56Z"
+      },
+      {
+        "action": "Navigate to DineDash main page to see all dishes",
+        "duration": "1.0s",
+        "html": null,
+        "id": "b6c3471e-940a-4616-b604-3badf86f643b",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/b6c3471e-940a-4616-b604-3badf86f643b/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:55:58Z"
+      },
+      {
+        "action": "Understand current page state",
+        "duration": "1.7s",
+        "html": null,
+        "id": "211f9da0-6714-4255-8c21-1d92cf4239d0",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/211f9da0-6714-4255-8c21-1d92cf4239d0/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:00Z"
+      },
+      {
+        "action": "View Paneer Butter Masala combo dish detail page",
+        "duration": "0.9s",
+        "html": null,
+        "id": "fe9c8404-abec-4c74-9630-8896053fac17",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/fe9c8404-abec-4c74-9630-8896053fac17/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:04Z"
+      },
+      {
+        "action": "Extract all dish detail page data",
+        "duration": "1.7s",
+        "html": null,
+        "id": "c5378141-71ea-4528-b20d-2b7dab5bcb2d",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/c5378141-71ea-4528-b20d-2b7dab5bcb2d/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:08Z"
+      },
+      {
+        "action": "Verify all dish detail page data",
+        "duration": "1.8s",
+        "html": null,
+        "id": "c7f1a9cf-8650-4f82-bba4-0ba316f22091",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/c7f1a9cf-8650-4f82-bba4-0ba316f22091/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:12Z"
+      },
+      {
+        "action": "Extract rating, eta, fees, coupons, reviews",
+        "duration": "1.6s",
+        "html": null,
+        "id": "d0a29007-e41e-4e48-bce7-52fc8ab58bbf",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/d0a29007-e41e-4e48-bce7-52fc8ab58bbf/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:21Z"
+      },
+      {
+        "action": "View Veg Thali dish detail page",
+        "duration": "0.9s",
+        "html": null,
+        "id": "fb7536cd-6a3e-4228-9f0a-dc2883787587",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/fb7536cd-6a3e-4228-9f0a-dc2883787587/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:25Z"
+      },
+      {
+        "action": "Extract Veg Thali dish detail data",
+        "duration": "2.6s",
+        "html": null,
+        "id": "56a6c035-d2d1-4cf9-8994-b3d1e1effa3d",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/56a6c035-d2d1-4cf9-8994-b3d1e1effa3d/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:28Z"
+      },
+      {
+        "action": "Return all dish data as JSON",
+        "duration": "5.6s",
+        "html": null,
+        "id": "f5890adf-35b3-4677-9ed7-3ddf1b41baba",
+        "screenshot": "https://agent.tinyfish.ai/runs/3c7b8af4-9497-491f-a827-d071a6a41962/steps/f5890adf-35b3-4677-9ed7-3ddf1b41baba/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:50Z"
+      },
+      {
+        "action": "Task completed",
+        "duration": null,
+        "html": null,
+        "id": "8b4961bf-f2c3-40e4-9ff1-bffe77040b43",
+        "screenshot": null,
+        "status": "COMPLETED",
+        "timestamp": "2026-10-25T01:56:56Z"
+      }
+    ],
+    "streaming_url": "https://ip-204-236-178-137.tetra-data.production.tinyfish.io/tf-ea44dade-5989-4597-bbcf-6f05db096b54/stream/0",
+    "video_url": null
+  },
+  "run_id": "3c7b8af4-9497-491f-a827-d071a6a41962",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T01:57:26.256486+00:00"
+}

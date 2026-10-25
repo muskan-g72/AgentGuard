@@ -48,6 +48,7 @@ class FoodOption(Message):
     coupons: list[Coupon] = Field(default_factory=list)
     review_snippets: list[str] = Field(default_factory=list)
     url: str = Field(min_length=1)
+    image: str | None = None
 
 
 class FoodItem(Message):

@@ -1,0 +1,62 @@
+{
+  "platform": "quickbite",
+  "raw": [
+    {
+      "coupons": [
+        {
+          "code": "SAVE40",
+          "max_discount": null,
+          "min_order": 250,
+          "type": "flat",
+          "value": 40
+        }
+      ],
+      "dish": "Paneer Butter Masala combo",
+      "eta_minutes": 40,
+      "fees": {
+        "delivery": 25,
+        "packaging": 10,
+        "platform": 4
+      },
+      "item_price": 290,
+      "platform": "QuickBite",
+      "rating": 4.3,
+      "rating_count": 800,
+      "restaurant": "Spice Route",
+      "review_snippets": [
+        "The paneer was soft, with a creamy, mild sauce.",
+        "The combo felt filling and travelled neatly.",
+        "A little more spice would have suited my taste."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/quickbite/dish.html?platform=quickbite&dish=qb-spice-route-paneer&qty=1&coupon=SAVE40&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": true
+    },
+    {
+      "coupons": [],
+      "dish": "Veg Biryani",
+      "eta_minutes": 35,
+      "fees": {
+        "delivery": 25,
+        "packaging": 10,
+        "platform": 4
+      },
+      "item_price": 200,
+      "platform": "QuickBite",
+      "rating": 3.6,
+      "rating_count": 500,
+      "restaurant": "Biryani Hub",
+      "review_snippets": [
+        "The vegetables were tender and the rice was mild.",
+        "A little extra seasoning would improve this bowl.",
+        "The packing kept the rice warm in this fictional delivery."
+      ],
+      "url": "https://demo-booking-tau.vercel.app/quickbite/dish.html?platform=quickbite&dish=qb-biryani-hub-veg&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+      "veg": true
+    }
+  ],
+  "run_id": "ce0b8c6d-848f-418c-a4b0-26a987568c10",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T01:54:09.913103+00:00"
+}

@@ -1,0 +1,54 @@
+{
+  "platform": "quickbite",
+  "raw": [
+    {
+      "coupons": [
+        {
+          "code": "SAVE40",
+          "max_discount": null,
+          "min_order": 250,
+          "type": "flat",
+          "value": 40
+        }
+      ],
+      "dish": "Paneer Butter Masala combo",
+      "eta_minutes": 40,
+      "fees": {
+        "delivery": 25,
+        "packaging": 10,
+        "platform": 4
+      },
+      "item_price": 290,
+      "platform": "QuickBite",
+      "rating": 4.3,
+      "rating_count": 800,
+      "restaurant": "Spice Route",
+      "review_snippets": [],
+      "url": "https://demo-booking-tau.vercel.app/quickbite/dish.html?platform=quickbite&dish=qb-spice-route-paneer",
+      "veg": true
+    },
+    {
+      "coupons": [],
+      "dish": "Veg Biryani",
+      "eta_minutes": 35,
+      "fees": {
+        "delivery": 25,
+        "packaging": 10,
+        "platform": 4
+      },
+      "item_price": 200,
+      "platform": "QuickBite",
+      "rating": 3.6,
+      "rating_count": 500,
+      "restaurant": "Biryani Hub",
+      "review_snippets": [],
+      "url": "https://demo-booking-tau.vercel.app/quickbite/dish.html?platform=quickbite&dish=qb-biryani-hub-veg",
+      "veg": true
+    }
+  ],
+  "run_id": "fixture",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T02:05:55.784402+00:00"
+}

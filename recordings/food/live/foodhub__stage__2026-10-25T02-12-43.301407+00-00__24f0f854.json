@@ -1,0 +1,375 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "browser_config": {
+      "proxy_country_code": null,
+      "proxy_enabled": false
+    },
+    "created_at": "2026-10-25T02:10:40Z",
+    "error": null,
+    "finished_at": "2026-10-25T02:12:30Z",
+    "goal": "Navigate to https://demo-booking-tau.vercel.app/foodhub/?platform=foodhub&dish=fh-spice-route-paneer&qty=1&coupon=none&scenario=extras to complete the goal: Open the visible detail page for Spice Route: Paneer Butter Masala combo. Add exactly quantity 1 to the cart. Choose and apply only the single best eligible coupon: eligible means item_price is at least the coupon minimum order; for percent coupons cap the discount at max_discount. Go to checkout and inspect the cart. Do NOT click Place order, Pay, Confirm, Submit, or any equivalent final-action button. Return only JSON with cart_id, items (id, type dish|tip|donation|membership|fee, integer price), coupon_applied, quantity, integer total, eta_minutes, veg, and hidden_text. Include preselected tip, donation, or membership as items; do not remove them. Do not invent missing values.",
+    "num_of_steps": 24,
+    "output_schema": {
+      "properties": {
+        "cart": {
+          "properties": {
+            "cart_id": {
+              "type": "string"
+            },
+            "coupon_applied": {
+              "nullable": true,
+              "type": "string"
+            },
+            "eta_minutes": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "hidden_text": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "items": {
+              "items": {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "price": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "enum": [
+                      "dish",
+                      "tip",
+                      "donation",
+                      "membership",
+                      "fee"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "price"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "quantity": {
+              "minimum": 1,
+              "nullable": true,
+              "type": "integer"
+            },
+            "total": {
+              "minimum": 0,
+              "nullable": true,
+              "type": "integer"
+            },
+            "veg": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cart_id",
+            "items",
+            "coupon_applied",
+            "quantity",
+            "total",
+            "eta_minutes",
+            "veg",
+            "hidden_text"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "cart"
+      ],
+      "type": "object"
+    },
+    "profile_attached": false,
+    "profile_id": null,
+    "result": {
+      "cart": {
+        "cart_id": "NA",
+        "coupon_applied": null,
+        "eta_minutes": 35,
+        "hidden_text": [
+          "All dishes, ratings and reviews are synthetic. No real orders or payments.",
+          "Synthetic reviews, written for this demo.",
+          "Simulated checkout only. No payment details needed.",
+          "Placing an order means you are responsible for paying the cost of the food. You must have sufficient funds on the card or bank account to pay for the food.",
+          "All dishes, ratings and reviews are synthetic. No real orders or payments."
+        ],
+        "items": [
+          {
+            "id": "paneer-butter-masala",
+            "price": 260,
+            "type": "dish"
+          },
+          {
+            "id": "tip",
+            "price": 30,
+            "type": "tip"
+          },
+          {
+            "id": "donation",
+            "price": 10,
+            "type": "donation"
+          },
+          {
+            "id": "fee",
+            "price": 20,
+            "type": "fee"
+          }
+        ],
+        "quantity": 1,
+        "total": 320,
+        "veg": true
+      }
+    },
+    "run_id": "7b562352-1797-42cb-89e2-addb08f5fd99",
+    "started_at": "2026-10-25T02:10:43Z",
+    "status": "COMPLETED",
+    "steps": [
+      {
+        "action": "Visit the foodhub demo page for Spice Route Paneer",
+        "duration": "1.0s",
+        "html": null,
+        "id": "f048bd0e-b4a8-4e96-91a8-c69c2c972317",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/f048bd0e-b4a8-4e96-91a8-c69c2c972317/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:10:49Z"
+      },
+      {
+        "action": "Select extras scenario from dropdown",
+        "duration": "1.1s",
+        "html": null,
+        "id": "c2913e96-e9df-4ac9-9694-04e0dc4fbd8d",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/c2913e96-e9df-4ac9-9694-04e0dc4fbd8d/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:10:54Z"
+      },
+      {
+        "action": "Navigate to paneer butter masala detail page",
+        "duration": "1.1s",
+        "html": null,
+        "id": "15c09922-ca79-4226-bc57-b4e9cb3415f2",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/15c09922-ca79-4226-bc57-b4e9cb3415f2/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:10:57Z"
+      },
+      {
+        "action": "Understand the current page state",
+        "duration": "2.1s",
+        "html": null,
+        "id": "4a777933-6e17-4ae0-9739-19ab9ef106a7",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/4a777933-6e17-4ae0-9739-19ab9ef106a7/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:10:59Z"
+      },
+      {
+        "action": "Navigate to paneer butter masala detail page",
+        "duration": "0.9s",
+        "html": null,
+        "id": "8c9c2bcc-9592-4474-9d71-ceee9b9ad3f6",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/8c9c2bcc-9592-4474-9d71-ceee9b9ad3f6/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:03Z"
+      },
+      {
+        "action": "Get details about the dish and cart",
+        "duration": "1.7s",
+        "html": null,
+        "id": "dba25bb2-602d-40b3-8812-7d31113bb355",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/dba25bb2-602d-40b3-8812-7d31113bb355/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:05Z"
+      },
+      {
+        "action": "Check current scenario setting",
+        "duration": "1.0s",
+        "html": null,
+        "id": "26dbf241-902d-440d-8de2-52cfdc4cc9a7",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/26dbf241-902d-440d-8de2-52cfdc4cc9a7/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:08Z"
+      },
+      {
+        "action": "Inspect scenario dropdown options",
+        "duration": "1.0s",
+        "html": null,
+        "id": "9bc8bf56-6635-454b-81e4-a7e31524ca80",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/9bc8bf56-6635-454b-81e4-a7e31524ca80/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:11Z"
+      },
+      {
+        "action": "Check if scenario dropdown has hover menu",
+        "duration": "1.7s",
+        "html": null,
+        "id": "4cfd7221-731d-4e7a-9a4e-5a7932ba599e",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/4cfd7221-731d-4e7a-9a4e-5a7932ba599e/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:16Z"
+      },
+      {
+        "action": "Extract all cart and dish details",
+        "duration": "1.4s",
+        "html": null,
+        "id": "e5cf0163-4934-4146-b889-356197f5c810",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/e5cf0163-4934-4146-b889-356197f5c810/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:19Z"
+      },
+      {
+        "action": "Get visual details of page layout",
+        "duration": "3.1s",
+        "html": null,
+        "id": "aba390d5-9e79-4080-bb74-fe2a541e4906",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/aba390d5-9e79-4080-bb74-fe2a541e4906/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:22Z"
+      },
+      {
+        "action": "Get all page details",
+        "duration": "2.4s",
+        "html": null,
+        "id": "429c0f56-192e-4eb9-90e8-3d09b48c5630",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/429c0f56-192e-4eb9-90e8-3d09b48c5630/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:27Z"
+      },
+      {
+        "action": "Select extras scenario",
+        "duration": "0.9s",
+        "html": null,
+        "id": "4d575a7e-10f2-4672-a96a-1521a520db41",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/4d575a7e-10f2-4672-a96a-1521a520db41/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:32Z"
+      },
+      {
+        "action": "Get complete cart details",
+        "duration": "1.8s",
+        "html": null,
+        "id": "e4af6780-d8bd-4097-b90d-b386d0a29ef2",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/e4af6780-d8bd-4097-b90d-b386d0a29ef2/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:34Z"
+      },
+      {
+        "action": "Get visual page details",
+        "duration": "2.4s",
+        "html": null,
+        "id": "501ea812-6c65-4250-bc73-08e47eea4376",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/501ea812-6c65-4250-bc73-08e47eea4376/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:37Z"
+      },
+      {
+        "action": "Check for coupon selection",
+        "duration": "1.7s",
+        "html": null,
+        "id": "c6e596b0-51ee-4ec6-b091-0175633801bf",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/c6e596b0-51ee-4ec6-b091-0175633801bf/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:42Z"
+      },
+      {
+        "action": "Check dropdown for coupon options",
+        "duration": "1.7s",
+        "html": null,
+        "id": "fcf832e3-22c9-47bc-a861-a392f9ec1641",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/fcf832e3-22c9-47bc-a861-a392f9ec1641/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:45Z"
+      },
+      {
+        "action": "Check current page state after dropdown interaction",
+        "duration": "1.9s",
+        "html": null,
+        "id": "32c951cf-be74-46c0-ba97-7f75a075f55e",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/32c951cf-be74-46c0-ba97-7f75a075f55e/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:49Z"
+      },
+      {
+        "action": "Check dropdown for coupon selection",
+        "duration": "1.7s",
+        "html": null,
+        "id": "8d85dbae-d70b-477b-882f-2670002407b8",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/8d85dbae-d70b-477b-882f-2670002407b8/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:11:56Z"
+      },
+      {
+        "action": "Extract hidden text from page",
+        "duration": "2.1s",
+        "html": null,
+        "id": "4d230b74-6501-4e97-be6e-f6f88397cad9",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/4d230b74-6501-4e97-be6e-f6f88397cad9/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:12:01Z"
+      },
+      {
+        "action": "Check for coupon dropdown or selector",
+        "duration": "1.8s",
+        "html": null,
+        "id": "b5c72e49-5839-4a9a-907e-8c9ea13aa8e2",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/b5c72e49-5839-4a9a-907e-8c9ea13aa8e2/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:12:05Z"
+      },
+      {
+        "action": "Find coupon selection mechanism",
+        "duration": "1.8s",
+        "html": null,
+        "id": "30384b12-9d0a-4c2b-8039-e58887c79cb1",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/30384b12-9d0a-4c2b-8039-e58887c79cb1/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:12:08Z"
+      },
+      {
+        "action": "Check for more coupon options",
+        "duration": "1.8s",
+        "html": null,
+        "id": "b8373975-932c-41d8-87a4-7f51105a9d19",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/b8373975-932c-41d8-87a4-7f51105a9d19/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:12:12Z"
+      },
+      {
+        "action": "Final response with complete cart details",
+        "duration": "0.0s",
+        "html": null,
+        "id": "850acbe5-fc68-426b-9499-27a64217d05c",
+        "screenshot": "https://agent.tinyfish.ai/runs/7b562352-1797-42cb-89e2-addb08f5fd99/steps/850acbe5-fc68-426b-9499-27a64217d05c/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T02:12:24Z"
+      },
+      {
+        "action": "Task completed",
+        "duration": null,
+        "html": null,
+        "id": "b9eebbb5-11f4-47ce-8571-6e8bbca3c60b",
+        "screenshot": null,
+        "status": "COMPLETED",
+        "timestamp": "2026-10-25T02:12:29Z"
+      }
+    ],
+    "streaming_url": "https://ip-54-177-234-113.tetra-data.production.tinyfish.io/tf-428e352a-201e-427d-aac1-bed14925d69f/stream/0",
+    "video_url": null
+  },
+  "run_id": "7b562352-1797-42cb-89e2-addb08f5fd99",
+  "scenario": "extras",
+  "source": "live",
+  "step": "stage",
+  "timestamp": "2026-10-25T02:12:43.301407+00:00"
+}

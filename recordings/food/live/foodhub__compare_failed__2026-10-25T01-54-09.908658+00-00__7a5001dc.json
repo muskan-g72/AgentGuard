@@ -1,0 +1,13 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "error": "TinyFish food run exceeded 120 seconds.",
+    "run_id": "c91140d1-7dc3-4f77-918f-7eea716847c7",
+    "status": "FAILED"
+  },
+  "run_id": "c91140d1-7dc3-4f77-918f-7eea716847c7",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare_failed",
+  "timestamp": "2026-10-25T01:54:09.908658+00:00"
+}

@@ -1,0 +1,13 @@
+{
+  "platform": "dinedash",
+  "raw": {
+    "error": "TinyFish food run exceeded 120 seconds.",
+    "run_id": "4f515e72-fce3-4e0f-9642-c614bf18bb27",
+    "status": "FAILED"
+  },
+  "run_id": "4f515e72-fce3-4e0f-9642-c614bf18bb27",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare_failed",
+  "timestamp": "2026-10-25T01:52:36.565927+00:00"
+}

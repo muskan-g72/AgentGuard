@@ -114,3 +114,5 @@ def test_data_food_and_recordings_agree_on_all_options():
         r_parsed = urlparse(r_opt["url"])
         assert d_parsed.path == r_parsed.path, f"url path mismatch for {key}"
         assert parse_qs(d_parsed.query) == parse_qs(r_parsed.query), f"url query mismatch for {key}"
+        assert "image" in d_opt, f"missing image in data/food.json for {key}"
+        assert (root / d_opt["image"].lstrip("/")).exists(), f"image file {d_opt['image']} not found on disk"

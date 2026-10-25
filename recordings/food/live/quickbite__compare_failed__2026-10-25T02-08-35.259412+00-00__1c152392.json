@@ -1,0 +1,13 @@
+{
+  "platform": "quickbite",
+  "raw": {
+    "error": "TinyFish food run exceeded 150 seconds.",
+    "run_id": "2861742d-1297-4bc7-be02-cc963783bd9f",
+    "status": "FAILED"
+  },
+  "run_id": "2861742d-1297-4bc7-be02-cc963783bd9f",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare_failed",
+  "timestamp": "2026-10-25T02:08:35.259412+00:00"
+}

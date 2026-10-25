@@ -1,0 +1,320 @@
+{
+  "platform": "quickbite",
+  "raw": {
+    "browser_config": {
+      "proxy_country_code": null,
+      "proxy_enabled": false
+    },
+    "created_at": "2026-10-25T01:55:51Z",
+    "error": null,
+    "finished_at": "2026-10-25T01:57:02Z",
+    "goal": "Navigate to https://demo-booking-tau.vercel.app/quickbite/ to complete the goal: Compare every listed dish on this food platform. Open each dish detail page and extract ONLY visible page data. For every dish return platform, restaurant, dish, veg, item_price, rating, rating_count, eta_minutes, fees (delivery, platform, packaging), coupons (code, type flat or percent, value, max_discount or null, min_order), review_snippets, and the detail-page URL. All money must be integer rupees. Do not add anything to a cart. Do not start checkout. Do not place an order. If a field is not visible, do not invent it; omit that dish instead. Return only JSON matching the requested schema.",
+    "num_of_steps": 11,
+    "output_schema": {
+      "properties": {
+        "options": {
+          "items": {
+            "properties": {
+              "coupons": {
+                "items": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "max_discount": {
+                      "minimum": 0,
+                      "nullable": true,
+                      "type": "integer"
+                    },
+                    "min_order": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "type": {
+                      "enum": [
+                        "flat",
+                        "percent"
+                      ],
+                      "type": "string"
+                    },
+                    "value": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "type",
+                    "value",
+                    "max_discount",
+                    "min_order"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "dish": {
+                "type": "string"
+              },
+              "eta_minutes": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "fees": {
+                "properties": {
+                  "delivery": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "packaging": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "platform": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "delivery",
+                  "platform",
+                  "packaging"
+                ],
+                "type": "object"
+              },
+              "item_price": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "platform": {
+                "type": "string"
+              },
+              "rating": {
+                "maximum": 5,
+                "minimum": 0,
+                "type": "number"
+              },
+              "rating_count": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "restaurant": {
+                "type": "string"
+              },
+              "review_snippets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "url": {
+                "type": "string"
+              },
+              "veg": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "platform",
+              "restaurant",
+              "dish",
+              "veg",
+              "item_price",
+              "rating",
+              "rating_count",
+              "eta_minutes",
+              "fees",
+              "coupons",
+              "review_snippets",
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "options"
+      ],
+      "type": "object"
+    },
+    "profile_attached": false,
+    "profile_id": null,
+    "result": {
+      "options": [
+        {
+          "coupons": [
+            {
+              "code": "SAVE40",
+              "max_discount": null,
+              "min_order": 250,
+              "type": "flat",
+              "value": 40
+            }
+          ],
+          "dish": "Paneer Butter Masala combo",
+          "eta_minutes": 40,
+          "fees": {
+            "delivery": 25,
+            "packaging": 10,
+            "platform": 4
+          },
+          "item_price": 290,
+          "platform": "QuickBite",
+          "rating": 4.3,
+          "rating_count": 800,
+          "restaurant": "Spice Route",
+          "review_snippets": [
+            "The paneer was soft, with a creamy, mild sauce.",
+            "The combo felt filling and travelled neatly.",
+            "A little more spice would have suited my taste."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/quickbite/dish.html?platform=quickbite&dish=qb-spice-route-paneer&qty=1&coupon=SAVE40&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": true
+        },
+        {
+          "coupons": [],
+          "dish": "Veg Biryani",
+          "eta_minutes": 35,
+          "fees": {
+            "delivery": 25,
+            "packaging": 10,
+            "platform": 4
+          },
+          "item_price": 200,
+          "platform": "QuickBite",
+          "rating": 3.6,
+          "rating_count": 500,
+          "restaurant": "Biryani Hub",
+          "review_snippets": [
+            "The vegetables were tender and the rice was mild.",
+            "A little extra seasoning would improve this bowl.",
+            "The packing kept the rice warm in this fictional delivery."
+          ],
+          "url": "https://demo-booking-tau.vercel.app/quickbite/dish.html?platform=quickbite&dish=qb-biryani-hub-veg&qty=1&coupon=none&tip=0&donation=0&gold=0&scenario=clean",
+          "veg": true
+        }
+      ]
+    },
+    "run_id": "ba611738-450f-4531-adfb-754e5f407d75",
+    "started_at": "2026-10-25T01:55:54Z",
+    "status": "COMPLETED",
+    "steps": [
+      {
+        "action": "Visit the QuickBite food platform homepage",
+        "duration": "1.0s",
+        "html": null,
+        "id": "bc81d439-7c18-4b57-8ecd-eacbf2991486",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/bc81d439-7c18-4b57-8ecd-eacbf2991486/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:55:55Z"
+      },
+      {
+        "action": "Visit QuickBite main page to see all dishes",
+        "duration": "0.9s",
+        "html": null,
+        "id": "bc0d6ecd-d6b5-49ed-960c-5e683f79eb83",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/bc0d6ecd-d6b5-49ed-960c-5e683f79eb83/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:55:57Z"
+      },
+      {
+        "action": "Get all dish details from the page",
+        "duration": "2.3s",
+        "html": null,
+        "id": "c3711ecc-1842-40d3-954c-9b06a4dd3eb9",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/c3711ecc-1842-40d3-954c-9b06a4dd3eb9/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:02Z"
+      },
+      {
+        "action": "Visit Paneer Butter Masala dish detail page",
+        "duration": "0.9s",
+        "html": null,
+        "id": "c817fb8f-2560-4066-b559-caa9f0d47380",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/c817fb8f-2560-4066-b559-caa9f0d47380/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:06Z"
+      },
+      {
+        "action": "Extract all visible dish details from paneer dish page",
+        "duration": "1.9s",
+        "html": null,
+        "id": "74aeb566-d39e-41bb-a37a-5d1b4dad0010",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/74aeb566-d39e-41bb-a37a-5d1b4dad0010/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:09Z"
+      },
+      {
+        "action": "Navigate back to menu to view Veg Biryani",
+        "duration": "1.0s",
+        "html": null,
+        "id": "9f83a291-3fd3-4c86-9cca-39f87c0fa124",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/9f83a291-3fd3-4c86-9cca-39f87c0fa124/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:13Z"
+      },
+      {
+        "action": "Navigate to Veg Biryani detail page",
+        "duration": "1.0s",
+        "html": null,
+        "id": "8fd4e532-2199-4c5c-bf87-a48f5790e7dc",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/8fd4e532-2199-4c5c-bf87-a48f5790e7dc/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:15Z"
+      },
+      {
+        "action": "Find clickable elements to navigate to Veg Biryani page",
+        "duration": "5.3s",
+        "html": null,
+        "id": "d3fd05ec-395f-4b98-bd99-bd227abdb91d",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/d3fd05ec-395f-4b98-bd99-bd227abdb91d/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:23Z"
+      },
+      {
+        "action": "Visit Veg Biryani dish detail page",
+        "duration": "1.0s",
+        "html": null,
+        "id": "6c04cb23-1982-4e5e-b105-286f5e49039a",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/6c04cb23-1982-4e5e-b105-286f5e49039a/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:30Z"
+      },
+      {
+        "action": "Extract all visible dish details from Veg Biryani page",
+        "duration": "1.5s",
+        "html": null,
+        "id": "ce9077ed-a9eb-47c3-83b2-53cfc983e0e5",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/ce9077ed-a9eb-47c3-83b2-53cfc983e0e5/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:33Z"
+      },
+      {
+        "action": "Submit extracted dish data from QuickBite platform",
+        "duration": "0.0s",
+        "html": null,
+        "id": "278e7d28-7ff0-4235-9794-74671f70860b",
+        "screenshot": "https://agent.tinyfish.ai/runs/ba611738-450f-4531-adfb-754e5f407d75/steps/278e7d28-7ff0-4235-9794-74671f70860b/screenshot",
+        "status": "RUNNING",
+        "timestamp": "2026-10-25T01:56:58Z"
+      },
+      {
+        "action": "Task completed",
+        "duration": null,
+        "html": null,
+        "id": "907c86af-714b-46e0-92bd-8129e8fea205",
+        "screenshot": null,
+        "status": "COMPLETED",
+        "timestamp": "2026-10-25T01:57:01Z"
+      }
+    ],
+    "streaming_url": "https://ip-52-53-239-114.tetra-data.production.tinyfish.io/tf-1c3b0309-5c04-4bc6-adae-08be2ef312e2/stream/0",
+    "video_url": null
+  },
+  "run_id": "ba611738-450f-4531-adfb-754e5f407d75",
+  "scenario": "clean",
+  "source": "live",
+  "step": "compare",
+  "timestamp": "2026-10-25T01:57:24.776099+00:00"
+}

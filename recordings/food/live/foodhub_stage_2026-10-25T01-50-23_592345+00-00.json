@@ -1,0 +1,44 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "cart_id": "foodhub_spice_extras",
+    "coupon_applied": null,
+    "coupon_details": null,
+    "eta_minutes": 35,
+    "hidden_text": [],
+    "items": [
+      {
+        "id": "dish_spice_route",
+        "price": 260,
+        "type": "dish",
+        "veg": null
+      },
+      {
+        "id": "fees",
+        "price": 20,
+        "type": "fee",
+        "veg": null
+      },
+      {
+        "id": "tip",
+        "price": 30,
+        "type": "tip",
+        "veg": null
+      },
+      {
+        "id": "donation",
+        "price": 10,
+        "type": "donation",
+        "veg": null
+      }
+    ],
+    "quantity": 1,
+    "total": 320,
+    "veg": true
+  },
+  "run_id": "live",
+  "scenario": "extras",
+  "source": "live",
+  "step": "stage",
+  "timestamp": "2026-10-25T01:50:23.592345+00:00"
+}

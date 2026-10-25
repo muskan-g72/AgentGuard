@@ -1,0 +1,13 @@
+{
+  "platform": "foodhub",
+  "raw": {
+    "error": "TinyFish returned HTTP 502; no approval or order was created.",
+    "run_id": "aab3ba3c-d475-48d0-a8da-fe5d7ad220ca",
+    "status": "FAILED"
+  },
+  "run_id": "aab3ba3c-d475-48d0-a8da-fe5d7ad220ca",
+  "scenario": "clean",
+  "source": "live",
+  "step": "stage_failed",
+  "timestamp": "2026-10-25T02:02:14.171005+00:00"
+}
