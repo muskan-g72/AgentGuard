@@ -16,6 +16,25 @@ def exact_host(value: str) -> str:
     return value
 
 
+def configured_hosts() -> set[str]:
+    """Read only literal hostnames from deployment configuration."""
+    hosts = set()
+    for value in os.getenv("ALLOWED_HOSTS", "").split(","):
+        value = value.strip()
+        if value:
+            hosts.add(exact_host(value))
+
+    public_base = os.getenv("PUBLIC_BASE_URL")
+    if public_base:
+        parsed = urlparse(public_base)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username or parsed.password or parsed.path not in {"", "/"}
+                or parsed.query or parsed.fragment):
+            raise ValueError("PUBLIC_BASE_URL must be a plain HTTP(S) origin.")
+        hosts.add(exact_host(parsed.hostname.casefold()))
+    return hosts
+
+
 @dataclass(frozen=True)
 class Settings:
     database: Path
@@ -38,6 +57,7 @@ class Settings:
                 or durable and parsed.port not in {None, 443}):
             raise ValueError("AGENTGUARD_PUBLIC_ORIGIN must be an origin, using HTTPS in durable mode.")
         hosts = {"localhost", "127.0.0.1", exact_host(parsed.hostname)}
+        hosts.update(configured_hosts())
         backend = os.getenv("AGENTGUARD_BACKEND_HOST")
         if backend:
             hosts.add(exact_host(backend))

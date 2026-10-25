@@ -14,6 +14,17 @@ def test_healthz_is_a_small_ready_response(tmp_path):
         assert client.get("/healthz").json() == {"status": "ok"}
 
 
+def test_render_host_allowlist_is_exact_and_healthz_allows_probe(monkeypatch, tmp_path):
+    host = "agentguard-demo.onrender.com"
+    monkeypatch.setenv("ALLOWED_HOSTS", host)
+    monkeypatch.setenv("PUBLIC_BASE_URL", f"https://{host}")
+    with TestClient(create_app(tmp_path / "render.db"), base_url=f"https://{host}") as client:
+        assert client.get("/").status_code == 200
+        assert client.get("/", headers={"Host": host + ".evil.example"}).status_code == 400
+        assert client.get("/", headers={"Host": "localhost"}).status_code == 200
+        assert client.get("/healthz", headers={"Host": "render-internal.invalid"}).json() == {"status": "ok"}
+
+
 def test_replay_origin_uses_exact_public_host(monkeypatch):
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://agentguard-demo.onrender.com")
     assert validate_replay_url("https://agentguard-demo.onrender.com/checkout.html")

@@ -37,6 +37,16 @@ load_dotenv(ROOT / ".env")
 logger = logging.getLogger("agentguard")
 
 
+class HealthcheckTrustedHostMiddleware(TrustedHostMiddleware):
+    """Keep the strict host allowlist while permitting Render's health probe."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path") == "/healthz":
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
 class TaskCreate(Message):
     sentence: str
     scenario: Literal["s1", "s2", "s3", "s4", "s5", "s6"] = "s1"
@@ -92,7 +102,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     version = release()
     instance_id = str(uuid4())
     api = FastAPI(title="AgentGuard simulated booking")
-    api.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(settings.allowed_hosts))
+    api.add_middleware(HealthcheckTrustedHostMiddleware, allowed_hosts=sorted(settings.allowed_hosts))
     api.state.store = Store(settings.database)
     api.state.settings = settings
     from .food_workflow import TinyFishFoodBrowser
