@@ -189,6 +189,23 @@ def test_food_replay_e2e_extras_guard_off_commits_at_320(client):
     assert commit["payload"]["total"] == 320
 
 
+def test_food_compare_wallet_returns_an_explained_ranked_breakdown(client):
+    response = client.post("/food/compare", json={
+        "contract": contract(), "platform_urls": URLS,
+        "wallet": [{"platform": "QuickBite", "kind": "gift_voucher", "amount": 60,
+                    "min_order": 250, "code": "QB60"}],
+    })
+    assert response.status_code == 200, response.text
+    body = response.json()
+    first = body["ranked"][0]
+    assert (first["platform"], first["effective_price"]) == ("QuickBite", 229)
+    assert first["voucher"]["discount"] == 60
+    assert first["coupon"]["discount"] == 40
+    assert first["menu_total"] == 329 and first["savings"] == 100
+    assert body["wallet_scope"] == "comparison_and_ranking_only"
+    assert body["wallet_applied_to_staging"] is False
+
+
 @pytest.mark.parametrize("scenario", ["qty2", "hidden", "nototal"])
 def test_food_replay_e2e_invalid_scenarios_never_committed(client, scenario):
     res = client.post("/food/compare", json={"contract": contract(), "platform_urls": URLS})

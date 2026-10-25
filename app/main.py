@@ -18,7 +18,7 @@ from pydantic import ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from guard.contract_parser import DEMO_CONTRACT, parse_contract
-from guard.food_models import FoodContract
+from guard.food_models import FoodContract, WalletEntry
 from guard.models import Cart, Contract, Message, OrderRequest
 
 from .catalog import BookingState
@@ -88,13 +88,17 @@ class RunRequest(Message):
 class FoodCompareRequest(Message):
     contract: FoodContract
     platform_urls: list[str]
+    wallet: list[WalletEntry] = []
     scenario: str | None = None
+    replay: bool | None = None
 
 
 class FoodRunRequest(Message):
     task_id: str
     guard_off: bool = False
     scenario: str | None = None
+    replay: bool | None = None
+    wallet: list[WalletEntry] = []
 
 
 def create_app(database: str | Path | None = None) -> FastAPI:
@@ -289,10 +293,14 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def food_compare(body: FoodCompareRequest):
         from .food_compare import compare_all, rank_options
 
-        comparison = compare_all(body.platform_urls)
-        ranking = rank_options(comparison.options, body.contract)
+        comparison = compare_all(body.platform_urls, replay=body.replay)
+        ranking = rank_options(comparison.options, body.contract, body.wallet)
+
+        def render(option, detail):
+            return {**option.model_dump(mode="json"), **detail}
+
         dropped = [
-            {"option": entry.option.model_dump(mode="json"), "reasons": entry.reasons}
+            {"option": render(entry.option, ranking.rejected_details["|".join((entry.option.platform, entry.option.restaurant, entry.option.dish, entry.option.url))]), "reasons": entry.reasons}
             for entry in ranking.rejected
         ]
         task = store().create_food_task(
@@ -301,13 +309,20 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             ranked=ranking.ranked,
             dropped=dropped,
             scenario=body.scenario,
+            wallet=body.wallet,
         )
+        mode = "fixture_replay" if (body.replay if body.replay is not None else os.getenv("REPLAY") == "1") else "live_agent"
         return {
             "task_id": task["task_id"],
-            "ranked": [option.model_dump(mode="json") for option in ranking.ranked],
+            "ranked": [render(option, ranking.details["|".join((option.platform, option.restaurant, option.dish, option.url))]) for option in ranking.ranked],
             "dropped": dropped,
-            "recommended": ranking.ranked[0].model_dump(mode="json") if ranking.ranked else None,
+            "recommended": render(ranking.ranked[0], ranking.details["|".join((ranking.ranked[0].platform, ranking.ranked[0].restaurant, ranking.ranked[0].dish, ranking.ranked[0].url))]) if ranking.ranked else None,
             "failed_platforms": comparison.failures,
+            "mode": mode,
+            "replay_available": True,
+            "value_formula": "taste_score / effective_price",
+            "wallet_scope": "comparison_and_ranking_only",
+            "wallet_applied_to_staging": False,
         }
 
     @api.post("/food/run")
@@ -317,6 +332,12 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         task = store().food_task(body.task_id)
         if task.get("recommended") is None:
             raise WorkflowError("No food option survived comparison; staging cannot start.", 409)
+        stored_wallet = task.get("wallet", [])
+        requested_wallet = [entry.model_dump(mode="json") for entry in body.wallet]
+        if requested_wallet and requested_wallet != stored_wallet:
+            raise WorkflowError("Wallet differs from the comparison request; compare again before staging.", 409)
+        if requested_wallet or stored_wallet:
+            store().event(body.task_id, task["status"], "Wallet savings apply to comparison and ranking only in replay; staged cart evidence has no voucher line.", event_type="food_wallet_comparison_only", wallet=stored_wallet)
         if body.guard_off:
             store().event(
                 body.task_id, task["status"], "Guard-off mode enabled for the before/after food demo.",

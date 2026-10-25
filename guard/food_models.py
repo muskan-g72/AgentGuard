@@ -18,7 +18,7 @@ class FoodContract(Message):
     min_rating: float = Field(ge=0, le=5)
     max_eta_minutes: int = Field(strict=True, ge=0)
     allow_extras: bool
-    priority: Literal["price", "taste"]
+    priority: Literal["price", "taste", "fastest", "value"]
 
 
 class Coupon(Message):
@@ -27,6 +27,16 @@ class Coupon(Message):
     value: Money
     max_discount: Money | None = None
     min_order: Money
+
+
+class WalletEntry(Message):
+    """A user-held credit that can apply only on its named platform."""
+
+    platform: str = Field(min_length=1)
+    kind: Literal["gift_voucher", "wallet_credit"]
+    amount: Money
+    min_order: Money
+    code: str = Field(min_length=1)
 
 
 class Fees(Message):

@@ -7,6 +7,17 @@ const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp
 const money = value => `Rs ${Number(value ?? 0).toLocaleString("en-IN")}`;
 const fallback = (value, text) => value === undefined || value === null || value === "" ? text : value;
 
+async function errorText(response, fallbackText) {
+  const body = await response.json().catch(() => ({}));
+  if (Array.isArray(body.detail)) {
+    return body.detail.map(issue => {
+      const field = Array.isArray(issue.loc) ? issue.loc.filter(part => part !== "body").join(".") : "request";
+      return `${field || "request"}: ${issue.msg || "Invalid value"}`;
+    }).join("; ");
+  }
+  return typeof body.detail === "string" ? body.detail : fallbackText;
+}
+
 function walletRow(values = {}) {
   const row = document.createElement("div");
   row.className = "wallet-row";
@@ -94,7 +105,7 @@ async function runOrder() {
   output.innerHTML = "<p>Staging the cart before any simulated order…</p>";
   try {
     const response = await fetch("/food/run", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({task_id: comparison.task_id, guard_off: $("#guard-off")?.checked || false, scenario: "extras", replay: comparison.mode === "fixture_replay", wallet: wallet()})});
-    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || `Run failed (${response.status}).`);
+    if (!response.ok) throw new Error(await errorText(response, `Run failed (${response.status}).`));
     renderTimeline(await response.json());
   } catch (error) {
     output.innerHTML = `<div class="guard-failure-banner" role="alert"><strong>Order flow failed.</strong><p>${esc(error.message)}</p><button id="retry-order" class="button" type="button">Retry</button></div>`;
@@ -111,7 +122,7 @@ async function compareOffers() {
   $("#compare-results").innerHTML = `<p class="loading">Comparing FoodHub, QuickBite, and DineDash…</p>`;
   try {
     const response = await fetch("/food/compare", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({contract: contract(), platform_urls: baseUrls, wallet: wallet(), replay: true})});
-    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || `Comparison failed (${response.status}).`);
+    if (!response.ok) throw new Error(await errorText(response, `Comparison failed (${response.status}).`));
     comparison = await response.json();
     $("#mode-badge").textContent = comparison.mode === "live_agent" ? "LIVE" : "REPLAY";
     setPlatformStatus(comparison.failed_platforms || {});

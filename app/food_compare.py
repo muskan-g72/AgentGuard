@@ -22,7 +22,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from guard.food_models import FoodContract, FoodOption, StagedFoodCart
+from guard.food_models import FoodContract, FoodOption, StagedFoodCart, WalletEntry
 from guard.food_rank import effective_price as guarded_effective_price
 from guard.food_rank import rank as guard_rank
 from guard.food_rank import taste_score as guarded_taste_score
@@ -56,6 +56,8 @@ class ComparisonResult:
 class RankingResult:
     ranked: list[FoodOption]
     rejected: list[RejectedOption]
+    details: dict[str, dict] = field(default_factory=dict)
+    rejected_details: dict[str, dict] = field(default_factory=dict)
 
 
 def _platform_name(url: str) -> str:
@@ -223,12 +225,13 @@ def _live_options(platform_url: str, *, retry: bool, timeout_seconds: int) -> li
     return _parse_options(raw)
 
 
-def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> list[FoodOption]:
+def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS,
+                     replay: bool | None = None) -> list[FoodOption]:
     """Extract visible dish options from one platform, with one parse retry."""
 
     platform = _platform_name(platform_url)
     scenario = parse_qs(urlparse(platform_url).query).get("scenario", [None])[0]
-    if os.getenv("REPLAY") == "1":
+    if replay if replay is not None else os.getenv("REPLAY") == "1":
         options = [FoodOption.model_validate(option) for option in _load_fixture(platform).get("options", [])]
         if scenario:
             options = [
@@ -247,13 +250,17 @@ def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEO
     raise AssertionError("unreachable")
 
 
-def compare_all(platform_urls: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> ComparisonResult:
+def compare_all(platform_urls: list[str], *, timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS,
+                replay: bool | None = None) -> ComparisonResult:
     """Start all supplied platform comparisons concurrently and retain partial results."""
 
     options: list[FoodOption] = []
     failures: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=len(platform_urls) or 1) as executor:
-        futures = {executor.submit(compare_platform, url, timeout_seconds=timeout_seconds): _platform_name(url) for url in platform_urls}
+        futures = {
+            executor.submit(compare_platform, url, timeout_seconds=timeout_seconds, replay=replay): _platform_name(url)
+            for url in platform_urls
+        }
         for future in as_completed(futures):
             platform = futures[future]
             try:
@@ -277,19 +284,25 @@ def coupon_discount(option: FoodOption) -> int:
     return max(discounts, default=0)
 
 
-def effective_price(option: FoodOption) -> int:
-    return guarded_effective_price(option)
+def _option_key(option: FoodOption) -> str:
+    return "|".join((option.platform, option.restaurant, option.dish, option.url))
+
+
+def effective_price(option: FoodOption, wallet: list[WalletEntry] | None = None) -> int:
+    return guarded_effective_price(option, wallet)
 
 
 def taste_score(option: FoodOption) -> float:
     return guarded_taste_score(option)
 
 
-def rank_options(options: list[FoodOption], contract: FoodContract) -> RankingResult:
-    result = guard_rank(contract, options)
+def rank_options(options: list[FoodOption], contract: FoodContract, wallet: list[WalletEntry] | None = None) -> RankingResult:
+    result = guard_rank(contract, options, wallet)
     return RankingResult(
         ranked=[entry["option"] for entry in result["ranked"]],
         rejected=[RejectedOption(entry["option"], entry["reasons"]) for entry in result["dropped"]],
+        details={_option_key(entry["option"]): entry["detail"] for entry in result["ranked"]},
+        rejected_details={_option_key(entry["option"]): entry["detail"] for entry in result["dropped"]},
     )
 
 
