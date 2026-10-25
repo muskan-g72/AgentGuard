@@ -10,7 +10,6 @@ export function validateCatalog(data) {
   const ids = new Set();
   for (const row of data.options) {
     if (!row.id || ids.has(row.id) || !data.platforms.some(platform => platform.name === row.platform)) throw new Error('Invalid dish identity.');
-    if (typeof row.image !== 'string' || !/^\/food-demo\/images\/[a-z0-9-]+\.webp$/.test(row.image) || typeof row.image_alt !== 'string' || !row.image_alt.trim()) throw new Error('Invalid dish image.');
     ids.add(row.id); money(row.item_price);
     for (const fee of ['delivery', 'platform', 'packaging']) money(row.fees[fee]);
     if (typeof row.veg !== 'boolean' || !Number.isFinite(row.rating) || row.rating < 0 || row.rating > 5

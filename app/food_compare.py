@@ -27,7 +27,7 @@ from guard.food_rank import effective_price as guarded_effective_price
 from guard.food_rank import rank as guard_rank
 from guard.food_rank import taste_score as guarded_taste_score
 
-from .tinyfish_client import TinyFishError, cancel_agent_run, get_agent_run, preflight_live, start_agent_async
+from .tinyfish_client import TinyFishError, cancel_agent_run, get_agent_run, start_agent_async
 
 
 class FoodCompareError(RuntimeError):
@@ -214,7 +214,6 @@ def _wait_for_result(run_id: str, *, timeout_seconds: int) -> dict:
 
 def _live_options(platform_url: str, *, retry: bool, timeout_seconds: int) -> list[FoodOption]:
     platform = _platform_name(platform_url)
-    preflight_live(platform_url)
     queued = start_agent_async(platform_url, _comparison_goal(retry=retry), output_schema=_option_schema(), timeout_seconds=timeout_seconds)
     run_id = queued.get("run_id")
     if not isinstance(run_id, str) or not run_id:
@@ -310,7 +309,6 @@ def stage_winner(option: FoodOption, contract: FoodContract, *, timeout_seconds:
     first_error: Exception | None = None
     for retry in (False, True):
         try:
-            preflight_live(option.url)
             queued = start_agent_async(option.url, _staging_goal(option, contract, retry=retry), output_schema=_staged_cart_schema(), timeout_seconds=timeout_seconds)
             run_id = queued.get("run_id")
             if not isinstance(run_id, str) or not run_id:
@@ -338,7 +336,6 @@ def fix_staged_cart(option: FoodOption, cart: StagedFoodCart, remove_item_ids: l
     first_error: Exception | None = None
     for retry in (False, True):
         try:
-            preflight_live(option.url)
             queued = start_agent_async(option.url, _fix_goal(option, remove_item_ids, retry=retry), output_schema=_staged_cart_schema(), timeout_seconds=timeout_seconds)
             run_id = queued.get("run_id")
             if not isinstance(run_id, str) or not run_id:
@@ -359,7 +356,6 @@ def commit_staged_order(option: FoodOption, cart: StagedFoodCart, *, timeout_sec
     platform = _platform_name(option.url)
     if os.getenv("REPLAY") == "1":
         return {"order_id": f"food_replay_{platform}_{cart.cart_id}", "total": cart.total}
-    preflight_live(option.url)
     queued = start_agent_async(option.url, _commit_goal(option, cart), output_schema={
         "type": "object", "properties": {"order_id": {"type": "string"}, "total": {"type": "integer", "minimum": 0}},
         "required": ["order_id", "total"],

@@ -13,7 +13,7 @@ import pytest
 from app.config import Settings, PUBLIC_ORIGIN
 from app.main import create_app
 from app.readiness import ReadinessError, verify_readiness
-from app.release import ASSETS, PUBLIC_ASSETS, ROOT, release
+from app.release import ASSETS, ROOT, release
 from guard.request_check import check_request
 from guard.contract_parser import DEMO_CONTRACT
 from scripts.prepare_deployment import prepare
@@ -22,7 +22,7 @@ from test_application import approved
 
 @pytest.fixture
 def artifact_root(tmp_path):
-    files = [ROOT / name for name in (*ASSETS, *PUBLIC_ASSETS, "pyproject.toml", "requirements-deploy.txt", "README.md", "deploy/fly.toml.template")]
+    files = [ROOT / name for name in (*ASSETS, "pyproject.toml", "requirements-deploy.txt", "README.md", "deploy/fly.toml.template")]
     files += list((ROOT / "app").glob("*.py")) + list((ROOT / "guard").glob("*.py"))
     for file in files:
         target = tmp_path / file.relative_to(ROOT)
@@ -118,7 +118,7 @@ class Response(io.BytesIO):
 
 def ready_responses():
     version = release()
-    values = {"/" + name: (ROOT / name).read_bytes() for name in (*ASSETS, *PUBLIC_ASSETS)}
+    values = {"/" + name: (ROOT / name).read_bytes() for name in ASSETS}
     health = {"release_id": version["release_id"], "db_ok": True, "checker_available": True,
               "receipt_configured": True,
               "confirmation_protected": True, "public_origin": PUBLIC_ORIGIN,

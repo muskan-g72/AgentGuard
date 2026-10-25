@@ -1,8 +1,6 @@
 # AgentGuard
 
-AgentGuard is a simulated booking and food-order guard. The unified FastAPI runtime serves the dashboard, train fixture, food fixtures, APIs, deterministic checks, and proof receipts. It stages an action, checks the staged data against a user contract, and only starts a simulated commit after an allow decision. It does not collect payment or personal data.
-
-Open `/` for the product dashboard. `/ui/` is a compatibility alias, `/train/` is the train fixture, and `/food/` is the protected food workflow entry. `/food-demo/`, `/foodhub/`, `/quickbite/`, and `/dinedash/` are synthetic fixture websites used by replay and browser QA.
+AgentGuard is a simulated booking and food-order guard. It stages an action, checks the staged data against a user contract, and only starts a simulated commit after an allow decision. It does not collect payment or personal data.
 
 ## What exists
 
@@ -14,9 +12,9 @@ Open `/` for the product dashboard. `/ui/` is a compatibility alias, `/train/` i
 
 ## Food flow
 
-1. `POST /food/compare` accepts a food contract and allowlisted platform URLs and creates an unconfirmed draft task.
+1. `POST /food/compare` accepts a food contract and platform URLs.
 2. It compares platform options, calculates effective price, records dropped reasons, and stores a recommended option in a task.
-3. `POST /food/{task_id}/confirm` explicitly authorizes the food contract; `POST /food/run` rejects unconfirmed tasks and then stages without ordering.
+3. `POST /food/run` stages that option without ordering.
 4. `guard/food_checker.py` checks the staged food cart.
 5. A block with listed removable extras runs one food fix and then re-checks.
 6. A normal commit starts only after an allow decision, matching stored cart hash, and allowed task status. The `guard_off` request flag is an explicit demo bypass and is recorded in events.
@@ -98,7 +96,7 @@ Results are recorded to `docs/eval-results.md`. (Use `--live` only when running 
 ## Known limits
 
 - Food replay is fixture-backed. It does not prove browser behavior on a deployed food platform.
-- Food live execution requires both the deployment kill switch and an operator capability; replay never calls TinyFish.
+- The food workflow has no user-confirmation endpoint between compare and run. **Planned:** explicit food-contract confirmation.
 - The food fix supports one pass only and removes only IDs returned by the food checker.
-- The evaluator's guard-off measurement is private server-side test state; it is not accepted by the public food request schema.
+- `guard_off` intentionally bypasses food checking and the normal commit gate for the before/after demo. It is not a safe production mode.
 - The train and food cart models are separate. `StagedFoodCart` does not replace the shared train `Cart` schema.

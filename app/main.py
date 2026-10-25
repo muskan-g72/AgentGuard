@@ -9,7 +9,6 @@ import time
 from functools import partial
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -84,11 +83,8 @@ class FoodCompareRequest(Message):
 
 class FoodRunRequest(Message):
     task_id: str
+    guard_off: bool = False
     scenario: str | None = None
-
-
-class FoodConfirmRequest(Message):
-    contract: FoodContract | None = None
 
 
 def create_app(database: str | Path | None = None) -> FastAPI:
@@ -269,19 +265,8 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         return run_task(store(), task_id, body.mode, body.cart_url, body.confirm)
 
     @api.post("/food/compare")
-    def food_compare(body: FoodCompareRequest, request: Request):
+    def food_compare(body: FoodCompareRequest):
         from .food_compare import compare_all, rank_options
-
-        if os.getenv("REPLAY") != "1" and not settings.agent_runs_enabled:
-            raise WorkflowError("Live food agent runs are disabled on this deployment.", 403)
-        if os.getenv("REPLAY") != "1":
-            operator = os.getenv("AGENTGUARD_OPERATOR_TOKEN")
-            if not operator or request.headers.get("X-AgentGuard-Operator") != operator:
-                raise WorkflowError("Live food runs require operator authorization.", 403)
-        for url in body.platform_urls:
-            parsed = urlparse(url)
-            if parsed.scheme != "https" or parsed.hostname != "demo-booking-tau.vercel.app" or parsed.path.strip("/") not in {"foodhub", "quickbite", "dinedash"}:
-                raise WorkflowError("Food platform URL is not an allowed simulated HTTPS page.", 422)
 
         comparison = compare_all(body.platform_urls)
         ranking = rank_options(comparison.options, body.contract)
@@ -304,65 +289,27 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             "failed_platforms": comparison.failures,
         }
 
-    @api.post("/food/{task_id}/confirm")
-    def food_confirm(task_id: str, body: FoodConfirmRequest):
-        task = store().food_task(task_id)
-        return store().confirm_food(task_id, body.contract)
-
     @api.post("/food/run")
-    def food_run(body: FoodRunRequest, request: Request):
+    def food_run(body: FoodRunRequest):
         from .food_workflow import run_food_task
-
-        if os.getenv("REPLAY") != "1" and not settings.agent_runs_enabled:
-            raise WorkflowError("Live food agent runs are disabled on this deployment.", 403)
-        if os.getenv("REPLAY") != "1":
-            operator = os.getenv("AGENTGUARD_OPERATOR_TOKEN")
-            if not operator or request.headers.get("X-AgentGuard-Operator") != operator:
-                raise WorkflowError("Live food runs require operator authorization.", 403)
 
         task = store().food_task(body.task_id)
         if task.get("recommended") is None:
             raise WorkflowError("No food option survived comparison; staging cannot start.", 409)
-        if not task.get("reviewed"):
-            raise WorkflowError("Confirm the food contract before starting the guarded run.", 409)
+        if body.guard_off:
+            store().event(
+                body.task_id, task["status"], "Guard-off mode enabled for the before/after food demo.",
+                event_type="food_guard_off_enabled", guard_off=True,
+            )
         return run_food_task(store(), body.task_id, api.state.food_browser_factory(), scenario=body.scenario)
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
-    ui_assets = {"index.html", "styles.css", "icon.svg", "app.mjs", "api.mjs", "mock-api.mjs", "format.mjs"}
     food_pages = {"index.html", "dish.html", "checkout.html", "confirmation.html"}
     food_platforms = {"foodhub", "quickbite", "dinedash"}
 
     @api.get("/")
     def index():
-        return FileResponse(ROOT / "ui" / "index.html")
-
-    @api.get("/ui/")
-    def dashboard():
-        return FileResponse(ROOT / "ui" / "index.html")
-
-    @api.get("/ui")
-    def dashboard_bare():
-        return FileResponse(ROOT / "ui" / "index.html")
-
-    @api.get("/ui/{asset}")
-    def dashboard_asset(asset: str):
-        if asset not in ui_assets:
-            raise HTTPException(404)
-        return FileResponse(ROOT / "ui" / asset)
-
-    @api.get("/train/")
-    def train_index():
         return FileResponse(ROOT / "index.html")
-
-    @api.get("/food/")
-    def food_entry():
-        return FileResponse(ROOT / "ui" / "index.html")
-
-    @api.get("/train/{asset}")
-    def train_asset(asset: str):
-        if asset not in assets:
-            raise HTTPException(404)
-        return FileResponse(ROOT / asset)
 
     @api.get("/{asset}")
     def asset(asset: str):
@@ -380,12 +327,6 @@ def create_app(database: str | Path | None = None) -> FastAPI:
         if asset not in allowed:
             raise HTTPException(404)
         return FileResponse(ROOT / "food-demo" / asset)
-
-    @api.get("/food-demo/images/{asset}")
-    def food_demo_image(asset: str):
-        if asset not in {"paneer-butter-masala.webp", "chicken-biryani.webp", "paneer-kathi-roll.webp", "veg-biryani.webp", "veg-thali.webp"}:
-            raise HTTPException(404)
-        return FileResponse(ROOT / "food-demo" / "images" / asset)
 
     @api.get("/food-demo/")
     def food_demo_index():

@@ -98,8 +98,6 @@
       ],
       "url": "/foodhub/dish.html?platform=foodhub&dish=fh-spice-route-paneer",
       "id": "fh-spice-route-paneer"
-      ,"image": "/food-demo/images/paneer-butter-masala.webp"
-      ,"image_alt": "Paneer butter masala combo with naan and basmati rice"
     },
     {
       "platform": "FoodHub",
@@ -123,8 +121,6 @@
       ],
       "url": "/foodhub/dish.html?platform=foodhub&dish=fh-biryani-hub-chicken",
       "id": "fh-biryani-hub-chicken"
-      ,"image": "/food-demo/images/chicken-biryani.webp"
-      ,"image_alt": "Fragrant chicken biryani with basmati rice and herbs"
     },
     {
       "platform": "FoodHub",
@@ -148,8 +144,6 @@
       ],
       "url": "/foodhub/dish.html?platform=foodhub&dish=fh-roll-point-paneer",
       "id": "fh-roll-point-paneer"
-      ,"image": "/food-demo/images/paneer-kathi-roll.webp"
-      ,"image_alt": "Paneer kathi rolls with grilled paneer and vegetables"
     },
     {
       "platform": "QuickBite",
@@ -181,8 +175,6 @@
       ],
       "url": "/quickbite/dish.html?platform=quickbite&dish=qb-spice-route-paneer",
       "id": "qb-spice-route-paneer"
-      ,"image": "/food-demo/images/paneer-butter-masala.webp"
-      ,"image_alt": "Paneer butter masala combo with naan and basmati rice"
     },
     {
       "platform": "QuickBite",
@@ -206,8 +198,6 @@
       ],
       "url": "/quickbite/dish.html?platform=quickbite&dish=qb-biryani-hub-veg",
       "id": "qb-biryani-hub-veg"
-      ,"image": "/food-demo/images/veg-biryani.webp"
-      ,"image_alt": "Vegetable biryani with basmati rice and fresh herbs"
     },
     {
       "platform": "DineDash",
@@ -231,8 +221,6 @@
       ],
       "url": "/dinedash/dish.html?platform=dinedash&dish=dd-spice-route-paneer",
       "id": "dd-spice-route-paneer"
-      ,"image": "/food-demo/images/paneer-butter-masala.webp"
-      ,"image_alt": "Paneer butter masala combo with naan and basmati rice"
     },
     {
       "platform": "DineDash",
@@ -264,8 +252,6 @@
       ],
       "url": "/dinedash/dish.html?platform=dinedash&dish=dd-green-bowl-thali",
       "id": "dd-green-bowl-thali"
-      ,"image": "/food-demo/images/veg-thali.webp"
-      ,"image_alt": "Vegetarian thali with rice, dal, vegetables and roti"
     }
   ],
   "source_commit": "4fa9c6f685c441248c5f8b5cc1a25746d6dfbd2e",
