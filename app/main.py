@@ -347,6 +347,20 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def food_demo_bare():
         return FileResponse(ROOT / "food-demo" / "index.html")
 
+    @api.get("/compare/")
+    def food_compare_page():
+        return FileResponse(ROOT / "food-demo" / "compare" / "index.html")
+
+    @api.get("/compare")
+    def food_compare_page_bare():
+        return FileResponse(ROOT / "food-demo" / "compare" / "index.html")
+
+    @api.get("/compare/{asset}")
+    def food_compare_asset(asset: str):
+        if asset not in {"compare.mjs"}:
+            raise HTTPException(404)
+        return FileResponse(ROOT / "food-demo" / "compare" / asset)
+
     @api.get("/{platform}/")
     def food_platform_index(platform: str):
         if platform not in food_platforms:

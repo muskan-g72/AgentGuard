@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Compare food offers · AgentGuard</title>
+  <link rel="stylesheet" href="/food-demo/styles.css">
+</head>
+<body class="compare-page">
+  <div class="fixture-bar">AGENTGUARD / FICTIONAL FOOD COMPARISON <span>All orders are simulated. No payment is taken.</span></div>
+  <header class="site-header compare-header">
+    <a class="brand" href="/food-demo/"><span class="brand-icon">AG</span>AgentGuard<small>FICTIONAL FOOD EDITION</small></a>
+    <nav aria-label="Food platforms"><a href="/foodhub/">FoodHub</a><a href="/quickbite/">QuickBite</a><a href="/dinedash/">DineDash</a><a class="active" href="/compare/">Compare</a></nav>
+    <span id="mode-badge" class="mode-badge">REPLAY</span>
+  </header>
+  <main class="compare-shell">
+    <section class="compare-hero">
+      <p class="eyebrow">COMPARE, THEN PROTECT THE CHECKOUT</p>
+      <h1>A full bill before an agent acts.</h1>
+      <p>Compare fictional menus, fees, coupons, vouchers, taste signals, and delivery time. AgentGuard stages any order before the simulated commit.</p>
+    </section>
+
+    <form id="compare-form" class="compare-form" novalidate>
+      <section>
+        <h2>What do you want?</h2>
+        <div class="compare-grid">
+          <label>Dish query<input id="dish-query" type="search" placeholder="Paneer butter masala"></label>
+          <label>Diet<select id="diet"><option value="veg">Vegetarian</option></select></label>
+          <label>Max budget<input id="max-total" type="number" min="1" step="1" value="300" required></label>
+          <label>Minimum rating<input id="min-rating" type="number" min="0" max="5" step="0.1" value="4.2" required></label>
+          <label>Max delivery time<input id="max-eta" type="number" min="1" step="1" value="45" required></label>
+          <label>Priority<select id="priority"><option value="price">Cheapest</option><option value="taste">Best taste</option><option value="fastest">Fastest</option><option value="value">Best value</option></select></label>
+        </div>
+        <label class="toggle-row"><input id="allow-extras" type="checkbox"><span>Allow extras</span><small>Tips, donations, and memberships otherwise cause a block.</small></label>
+      </section>
+      <section>
+        <div class="section-title"><div><h2>My vouchers and wallet</h2><p class="muted">Savings apply in comparison. Replay checkout evidence remains unchanged.</p></div><button id="voucher-example" class="button" type="button">Use QuickBite Rs 60 example</button></div>
+        <div id="wallet-rows" class="wallet-rows" aria-live="polite"></div>
+        <button id="add-voucher" class="button" type="button">+ Add voucher or credit</button>
+      </section>
+      <button id="compare-button" class="button primary compare-button" type="submit">Compare offers</button>
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+    </form>
+
+    <section id="compare-status" class="platform-status" aria-live="polite" hidden></section>
+    <section id="compare-results" aria-live="polite"></section>
+  </main>
+  <script type="module" src="/compare/compare.mjs"></script>
+</body>
+</html>

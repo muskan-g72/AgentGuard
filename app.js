@@ -90,4 +90,19 @@
     ticketPrice, totalPrice, bookingParams, cartData, buildOrder, queryFor };
   root.AgentGuardDemo = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (typeof document !== 'undefined' && (location.pathname === '/' || location.pathname.endsWith('/index.html'))) {
+    const addCompareLink = () => {
+      const header = document.querySelector('main > header');
+      if (header && !document.getElementById('food-compare-link')) {
+        const link = document.createElement('a');
+        link.id = 'food-compare-link';
+        link.className = 'muted';
+        link.href = '/compare/';
+        link.textContent = 'Compare fictional food offers →';
+        header.prepend(link, document.createTextNode(' · '));
+      }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addCompareLink, { once: true });
+    else addCompareLink();
+  }
 }(globalThis));
