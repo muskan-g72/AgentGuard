@@ -97,8 +97,15 @@ def run_once(client: TestClient, scenario: str, guard_off: bool, browser) -> Out
     comparison = client.post("/food/compare", json={"contract": contract(), "platform_urls": PLATFORM_URLS})
     comparison.raise_for_status()
     task_id = comparison.json()["task_id"]
+    confirmed = client.post(f"/food/{task_id}/confirm", json={})
+    confirmed.raise_for_status()
+    if guard_off:
+        # Private evaluator-only bypass: it is stored server-side and is not
+        # accepted by the public FoodRunRequest schema.
+        client.app.state.store.event(task_id, "awaiting_confirmation", "Private evaluator guard-off measurement.",
+                                     event_type="food_eval_guard_off", guard_off=True)
     started = time.perf_counter()
-    result = client.post("/food/run", json={"task_id": task_id, "guard_off": guard_off})
+    result = client.post("/food/run", json={"task_id": task_id})
     elapsed_ms = (time.perf_counter() - started) * 1000
     result.raise_for_status()
     task = client.get(f"/tasks/{task_id}").json()

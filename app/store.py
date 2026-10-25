@@ -57,6 +57,8 @@ class Store:
                     version INTEGER NOT NULL, contract_hash TEXT NOT NULL, cart_hash TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS orders (
                     id TEXT PRIMARY KEY, approval TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS food_orders (
+                    id TEXT PRIMARY KEY, task_id TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL);
                 CREATE TRIGGER IF NOT EXISTS orders_no_update BEFORE UPDATE ON orders
                     BEGIN SELECT RAISE(ABORT, 'Orders are immutable'); END;
                 CREATE TRIGGER IF NOT EXISTS orders_no_delete BEFORE DELETE ON orders
@@ -175,7 +177,7 @@ class Store:
             "task_id": str(uuid4()), "kind": "food", "sentence": "Food comparison",
             "scenario": scenario or "food", "draft_contract": contract.model_dump(mode="json"),
             "contract": contract.model_dump(mode="json"), "questions": [], "answers": {},
-            "reviewed": True, "events": [], "status": "awaiting_confirmation",
+            "reviewed": False, "events": [], "status": "awaiting_confirmation",
             "recommended": recommended.model_dump(mode="json") if recommended else None,
             "guard_off": guard_off,
         }
@@ -194,11 +196,48 @@ class Store:
             )
         return task
 
+    def confirm_food(self, task_id, contract: FoodContract | None = None):
+        """Explicitly authorize a food contract before any staging or agent run."""
+        with self.connection() as db:
+            task = self._task(db, task_id)
+            if task.get("kind") != "food":
+                raise WorkflowError("Task is not a food task.", 422)
+            if task.get("reviewed"):
+                if contract is not None and canonical(contract) != canonical(task["contract"]):
+                    raise WorkflowError("Reviewed instructions are immutable; create a new task.")
+                return task
+            if contract is not None:
+                task["contract"] = contract.model_dump(mode="json")
+            task["reviewed"] = True
+            task["contract_hash"] = digest(task["contract"])
+            self._event(db, task, "awaiting_confirmation", "Food contract explicitly reviewed and authorized.",
+                        event_type="food_contract_confirmed", payload={"contract_hash": task["contract_hash"]})
+            return task
+
     def food_task(self, task_id):
         task = self.task(task_id)
         if task.get("kind") != "food":
             raise WorkflowError("Task is not a food task.", 422)
         return task
+
+    def record_food_order(self, task_id, cart, contract, decision, result):
+        """Persist one immutable simulated food order, idempotently by task."""
+        with self.connection() as db:
+            task = self._task(db, task_id)
+            existing = db.execute("SELECT snapshot FROM food_orders WHERE task_id=?", (task_id,)).fetchone()
+            if existing is not None:
+                return json.loads(existing[0])
+            order_id = str(result["order_id"])
+            snapshot = {
+                "order_id": order_id, "simulated": True, "task_id": task_id,
+                "cart": cart.model_dump(mode="json"), "contract": contract.model_dump(mode="json"),
+                "decision": decision.model_dump(mode="json"), "total": cart.total,
+                "cart_hash": digest(cart), "contract_hash": digest(contract),
+            }
+            db.execute("INSERT INTO food_orders VALUES (?,?,?)", (order_id, task_id, canonical(snapshot)))
+            task["food_order_id"] = order_id
+            self._save_task(db, task)
+            return snapshot
 
     def task(self, task_id):
         with self.connection() as db:
@@ -398,6 +437,8 @@ class Store:
         with self.connection() as db:
             row = db.execute("SELECT snapshot FROM orders WHERE id=?", (order_id,)).fetchone()
             if row is None:
+                row = db.execute("SELECT snapshot FROM food_orders WHERE id=?", (order_id,)).fetchone()
+            if row is None:
                 raise WorkflowError("No confirmed server order exists.", 404)
             return json.loads(row[0])
 
@@ -412,11 +453,17 @@ class Store:
         with self.connection() as db:
             task = self._task(db, task_id)
             final = None
+            row = None
             if task.get("order_id"):
                 row = db.execute("SELECT snapshot FROM orders WHERE id=?", (task["order_id"],)).fetchone()
                 if row is not None:
                     order = json.loads(row[0])
                     final = {"order_id": order["order_id"], "total": order["order_request"]["total"]}
+            elif task.get("food_order_id"):
+                row = db.execute("SELECT snapshot FROM food_orders WHERE id=?", (task["food_order_id"],)).fetchone()
+                if row is not None:
+                    order = json.loads(row[0])
+                    final = {"order_id": order["order_id"], "total": order["total"]}
             events = [
                 {key: event[key] for key in ("id", "ts", "type", "payload", "prev_hash", "hash")}
                 for event in task["events"]

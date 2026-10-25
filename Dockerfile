@@ -7,5 +7,12 @@ COPY pyproject.toml README.md ./
 COPY app/*.py ./app/
 COPY guard/*.py ./guard/
 COPY index.html checkout.html confirmation.html app.js checkout.js styles.css ./
+COPY ui ./ui
+COPY food-demo ./food-demo
+COPY foodhub ./foodhub
+COPY quickbite ./quickbite
+COPY dinedash ./dinedash
+COPY data/food.json ./data/food.json
+COPY recordings/food ./recordings/food
 EXPOSE 8080
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]

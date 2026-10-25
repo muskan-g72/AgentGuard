@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TaskAPI } from './api.mjs';
 
-test('task API sends the schema payload through a same-origin proxy', async () => {
+test('task API sends the schema payload to the unified same-origin runtime', async () => {
   const original = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, options) => {
@@ -11,7 +11,7 @@ test('task API sends the schema payload through a same-origin proxy', async () =
   };
   try {
     await new TaskAPI().create({ sentence: 'Book a ticket', scenario: 's2', guard_enabled: true });
-    assert.equal(calls[0].url, '/api/task-proxy?path=%2Ftasks');
+    assert.equal(calls[0].url, '/tasks');
     assert.deepEqual(JSON.parse(calls[0].options.body), { sentence: 'Book a ticket', scenario: 's2', guard_enabled: true });
     assert.equal(calls[0].options.headers.Authorization, undefined);
   } finally { globalThis.fetch = original; }
@@ -52,7 +52,7 @@ test('EventSource receives status events and can be closed on reset', () => {
   try {
     const received = [];
     const close = new TaskAPI().subscribe('task_1', value => received.push(value));
-    assert.equal(source.url, '/api/task-proxy?path=%2Ftasks%2Ftask_1%2Fevents');
+    assert.equal(source.url, '/tasks/task_1/events');
     source.callbacks.status({ data: '{"task_id":"task_1","status":"checking"}' });
     assert.deepEqual(received, [{ task_id: 'task_1', status: 'checking' }]);
     close(); assert.equal(source.closed, true);

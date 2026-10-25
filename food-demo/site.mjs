@@ -6,7 +6,8 @@ const slug = document.body.dataset.platform;
 let catalog, platform, state, option;
 const charge = value => value < 0 ? '− ' + money(-value) : money(value);
 const vegBadge = row => `<span class="diet ${row.veg ? 'veg' : 'nonveg'}"><i></i>${row.veg ? 'Vegetarian' : 'Non-vegetarian'}</span>`;
-const plate = (row, large = false) => `<div class="dish-art ${large ? 'large' : ''}" aria-hidden="true"><span class="art-label">${esc(row.restaurant)}</span><img src="/food-demo/plate.svg" alt=""><span class="art-stamp">${row.veg ? 'PLANT-LED COMFORT' : 'FROM THE KITCHEN'}</span></div>`;
+const imagePath = row => typeof row.image === 'string' && row.image.startsWith('/food-demo/images/') && !row.image.includes('..') ? row.image : '/food-demo/plate.svg';
+const plate = (row, large = false) => `<div class="dish-art ${large ? 'large' : ''}"><span class="art-label">${esc(row.restaurant)}</span><img class="dish-photo" src="${esc(imagePath(row))}" alt="${esc(row.image_alt || row.dish)}" loading="lazy" onerror="this.onerror=null;this.classList.add('fallback');this.src='/food-demo/plate.svg'"><span class="art-stamp">${row.veg ? 'PLANT-LED COMFORT' : 'FROM THE KITCHEN'}</span></div>`;
 
 function nav() {
   return `<div class="fixture-bar">FICTIONAL FOOD DEMO <span>All dishes, ratings and reviews are synthetic. No real orders or payments.</span></div><header class="site-header"><a class="brand" href="/${platform.id}/?scenario=${state.scenario}"><span class="brand-icon">${esc(platform.icon)}</span>${esc(platform.name)}<small>THE FICTIONAL FOOD EDITION</small></a><nav aria-label="Platforms">${catalog.platforms.map(row => `<a class="${row.id === platform.id ? 'active' : ''}" href="/${row.id}/?scenario=${state.scenario}" ${row.id === platform.id ? 'aria-current="page"' : ''}>${esc(row.name)}</a>`).join('')}</nav><a class="sandbox-link" href="/food-demo/">Demo guide ↗</a></header><div class="context-strip"><span>◉ Serving the demo neighbourhood</span><label for="scenario">Scenario <select id="scenario">${SCENARIOS.map(value => `<option ${value === state.scenario ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div>`;
@@ -109,10 +110,12 @@ function wireGuardedWorkflow() {
         return `${esc(row.restaurant)} / ${esc(row.dish)}: ${money(quote(row, sourcePlatform, sourceState).total)}`;
       }).join('<br>');
       const dropped = comparison.dropped.map(entry => `${esc(entry.option.restaurant)} / ${esc(entry.option.dish)} - ${esc(entry.reasons.join('; '))}`).join('<br>') || 'None';
-      output.innerHTML = `<p><strong>Contract:</strong> veg, quantity 1, max Rs 300, rating 4.2+, ETA 45 min, no extras, prioritize price.</p><p><strong>Compare → rank:</strong> ${comparison.ranked.length} option(s) survived; ${comparison.dropped.length} dropped.</p><p><strong>Ranked:</strong><br>${ranked}</p><p><strong>Dropped with reasons:</strong><br>${dropped}</p><p><strong>Stage cart → guard decision → fix → re-check → simulated order</strong></p><button id="run-food-task" class="button" type="button">Stage and run guarded cart</button><div id="guard-task-output"></div>`;
-      document.getElementById('run-food-task').addEventListener('click', async () => {
+      output.innerHTML = `<p><strong>Contract:</strong> veg, quantity 1, max Rs 300, rating 4.2+, ETA 45 min, no extras, prioritize price.</p><p><strong>Compare → rank:</strong> ${comparison.ranked.length} option(s) survived; ${comparison.dropped.length} dropped.</p><p><strong>Ranked:</strong><br>${ranked}</p><p><strong>Dropped with reasons:</strong><br>${dropped}</p><p><strong>Stage cart → guard decision → fix → re-check → simulated order</strong></p><button id="confirm-food-task" class="button" type="button">Confirm food contract</button><div id="guard-task-output"></div>`;
+      document.getElementById('confirm-food-task').addEventListener('click', async () => {
         const taskOutput = document.getElementById('guard-task-output');
         try {
+          const confirmed = await fetch(`/food/${encodeURIComponent(comparison.task_id)}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          if (!confirmed.ok) throw new Error(`Contract confirmation failed (${confirmed.status}).`);
           const run = await fetch('/food/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: comparison.task_id }) });
           if (!run.ok) throw new Error(`Guarded run failed (${run.status}).`);
           const task = await run.json();

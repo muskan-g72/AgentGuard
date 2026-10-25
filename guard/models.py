@@ -14,7 +14,17 @@ Count = Annotated[int, Field(strict=True, ge=1)]
 class Message(BaseModel):
     """Reject extra fields and coercions at the authorization boundary."""
 
-    model_config = ConfigDict(extra="forbid", strict=True, serialize_by_alias=True)
+    # ``serialize_by_alias`` is only available in newer Pydantic releases;
+    # keep schema-v2 JSON stable on the supported 2.10 runtime as well.
+    model_config = ConfigDict(extra="forbid", strict=True, populate_by_name=True)
+
+    def model_dump(self, *args, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        return super().model_dump(*args, **kwargs)
+
+    def model_dump_json(self, *args, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        return super().model_dump_json(*args, **kwargs)
 
 
 class Route(Message):

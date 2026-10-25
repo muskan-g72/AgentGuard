@@ -2,7 +2,10 @@ import { assertTaskMoney } from './format.mjs';
 
 export class TaskAPI {
   mode = 'api';
-  url(path) { return '/api/task-proxy?path=' + encodeURIComponent(path); }
+  // The unified FastAPI runtime owns the task API; no separately hosted proxy
+  // is required for the production dashboard. Keep paths same-origin so the
+  // browser never receives backend credentials.
+  url(path) { return path; }
   async request(path, { method = 'GET', body, signal, timeout = 20000 } = {}) {
     const options = { method, headers: { Accept: 'application/json' }, signal: signal || AbortSignal.timeout(timeout), cache: 'no-store' };
     if (body !== undefined) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }

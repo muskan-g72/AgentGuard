@@ -1,5 +1,19 @@
 # AgentGuard current status
 
+## Unified-product implementation update
+
+On branch `complete-agentguard-product`, the local runtime now serves the main
+dashboard at `/`, `/ui/` as an alias, train fixtures under `/train/`, and food
+entry/fixture routes from `app.main:app`. Food comparison creates an unconfirmed
+task; `/food/{task_id}/confirm` is required before `/food/run`. Food simulated
+orders persist in `food_orders` and are available through the order and receipt
+APIs. Replay is credential-free; live food requires the deployment kill switch
+and operator header. No deployment or paid API call has been performed.
+
+Remaining known blocker: public anonymous session ownership/authentication is not
+yet implemented, so the backend must not be exposed publicly until that boundary
+is added.
+
 > Public-demo readiness has now been prepared locally; see
 > [public-demo-readiness.md](public-demo-readiness.md) for the observed public
 > asset version, Fly/SQLite + Vercel proxy configuration, deployment commands,

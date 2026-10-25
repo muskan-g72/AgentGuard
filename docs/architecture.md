@@ -1,5 +1,10 @@
 # Architecture
 
+The authoritative runtime is `app.main:app`. It serves the dashboard at `/`,
+the `/ui/` compatibility alias, train fixtures under `/train/`, and food entry
+and fixture routes. `ui.server` remains a development compatibility shim only;
+the dashboard calls same-origin task routes directly.
+
 ## Shared train flow
 
 `guard/models.py` defines the train Schema v2 messages. Money is integer rupees. `guard/checker.py` checks a train cart without network or LLM calls. `app/store.py` stores tasks and appends hash-chained events. `app/workflow.py` stages, checks, removes returned extras once, re-checks, and can submit a simulated train order through the existing backend flow.
@@ -23,9 +28,15 @@ The food contract contains:
 
 `POST /food/compare` calls comparison and ranking. It creates a food task and writes `food_compare_done` and `food_ranked` events. It returns ranked options, dropped options with reasons, the recommended option, failed platforms, and the task ID.
 
-`POST /food/run` reads the stored recommendation. It writes events for staging, decision, optional fix, re-check, and commit. The normal food commit gate requires task status `allowed`, a stored `allow` decision, and a cart hash matching the cart recorded at check time. A confirmed simulated total must equal the staged total.
+`POST /food/{task_id}/confirm` explicitly authorizes the food contract. Until
+that call, `POST /food/run` returns a conflict. The confirmed contract is
+immutable. `/food/run` then writes events for staging, decision, optional fix,
+re-check, and commit. Successful food commits are persisted in `food_orders`,
+retrievable through `/api/orders/{order_id}`, and included in signed receipts.
 
-`guard_off` is an explicit before/after-demo bypass. It skips the food check and normal food commit gate and writes `food_guard_off_enabled` and `food_guard_off_bypass` events.
+The public food schema does not accept `guard_off`. Before/after measurements
+use private evaluator state only; a normal browser caller cannot bypass the food
+checker or commit gate.
 
 ## Comparison and ranking
 
@@ -38,7 +49,7 @@ The taste score is `(rating * rating_count + 3.8 * 50) / (rating_count + 50)`. I
 ## Planned work
 
 - Verify live food paths and TinyFish results after deployment.
-- Add explicit food-contract confirmation before `POST /food/run`.
+- Add session ownership and authenticated public-demo access before deployment.
 - Add more than one food-fix attempt if product requirements permit it.
 - Provide a production authorization mode; `guard_off` is demo-only.
 

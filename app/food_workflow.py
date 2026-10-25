@@ -79,7 +79,8 @@ def commit_food_task(store: Store, task_id: str, browser: FoodBrowser, option: F
     if not isinstance(result.get("order_id"), str) or not result["order_id"]:
         _event(store, task_id, "failed", "Food commit returned no order ID.", "food_commit_failed")
         return False
-    _event(store, task_id, "done", "Simulated food order committed after the required checks.", "food_commit_result", order_id=result["order_id"], total=cart.total)
+    stored = store.record_food_order(task_id, cart, FoodContract.model_validate(task["contract"]), decision, result)
+    _event(store, task_id, "done", "Simulated food order committed after the required checks.", "food_commit_result", order_id=stored["order_id"], total=cart.total)
     return True
 
 
@@ -87,6 +88,8 @@ def run_food_task(store: Store, task_id: str, browser: FoodBrowser, *, scenario:
     """Stage, check, make one bounded fix, re-check, and conditionally commit."""
 
     task = store.food_task(task_id)
+    if not task.get("reviewed"):
+        raise RuntimeError("Food contract must be explicitly confirmed before running.")
     contract = FoodContract.model_validate(task["contract"])
     option = FoodOption.model_validate(task.get("recommended"))
     scenario = scenario or task.get("scenario")

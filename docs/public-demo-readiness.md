@@ -1,5 +1,10 @@
 # Public demo deployment readiness
 
+The current unified-product branch extends the prepared image and release
+manifest to include the dashboard and food assets. This remains local only. Do
+not provision or expose the backend until anonymous session ownership/auth is
+implemented and the public preflight passes against the matching release.
+
 Prepared on 24 October and updated on 25 October 2026. All changes remain local. No app, volume, deployment,
 commit, push, or teammate message was created. No live TinyFish or LLM call was
 executed in this readiness task. Bookings remain simulated.

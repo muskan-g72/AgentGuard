@@ -11,7 +11,7 @@ const allowed = new Set(['foodhub', 'quickbite', 'dinedash', 'food-demo', 'data'
 for (const item of await readdir(output)) if (!allowed.has(item)) throw new Error('Output contains unrelated files; choose an empty directory.');
 const publicFiles = new Set(['vercel.json', 'data/food.json',
   ...['foodhub', 'quickbite', 'dinedash'].flatMap(slug => ['index.html', 'dish.html', 'checkout.html', 'confirmation.html'].map(file => `${slug}/${file}`)),
-  ...['index.html', 'site.mjs', 'logic.mjs', 'styles.css', 'plate.svg'].map(file => `food-demo/${file}`)]);
+  ...['index.html', 'site.mjs', 'logic.mjs', 'styles.css', 'plate.svg', 'images/paneer-butter-masala.webp', 'images/chicken-biryani.webp', 'images/paneer-kathi-roll.webp', 'images/veg-biryani.webp', 'images/veg-thali.webp'].map(file => `food-demo/${file}`)]);
 async function inspect(directory, prefix = '') {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const relative = prefix + entry.name;
@@ -28,6 +28,8 @@ for (const slug of ['foodhub', 'quickbite', 'dinedash']) {
 }
 await mkdir(path.join(output, 'food-demo'), { recursive: true });
 for (const file of ['index.html', 'site.mjs', 'logic.mjs', 'styles.css', 'plate.svg']) await cp(path.join(root, 'food-demo', file), path.join(output, 'food-demo', file));
+await mkdir(path.join(output, 'food-demo/images'), { recursive: true });
+for (const file of ['paneer-butter-masala.webp', 'chicken-biryani.webp', 'paneer-kathi-roll.webp', 'veg-biryani.webp', 'veg-thali.webp']) await cp(path.join(root, 'food-demo/images', file), path.join(output, 'food-demo/images', file));
 await mkdir(path.join(output, 'data'), { recursive: true });
 await cp(path.join(root, 'data/food.json'), path.join(output, 'data/food.json'));
 await cp(path.join(root, 'food-demo/vercel.json'), path.join(output, 'vercel.json'));

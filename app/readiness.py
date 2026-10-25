@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-from .release import ASSETS, sha256
+from .release import ASSETS, PUBLIC_ASSETS, sha256
 
 
 class ReadinessError(RuntimeError):
@@ -87,6 +87,14 @@ def verify_readiness(base_url: str, *, expected_release=None, require_durable=Tr
         status, body, _ = get("/" + name)
         if status != 200 or sha256(body) != fingerprint:
             raise ReadinessError(f"Public frontend asset {name} differs from the running backend release.")
+    public_assets = version.get("public_assets")
+    if public_assets:
+        if set(public_assets) != set(PUBLIC_ASSETS):
+            raise ReadinessError("The backend did not provide the complete dashboard and food asset manifest.")
+        for name, fingerprint in public_assets.items():
+            status, body, _ = get("/" + name)
+            if status != 200 or sha256(body) != fingerprint:
+                raise ReadinessError(f"Public product asset {name} differs from the running backend release.")
     status, _, _ = get("/api/orders/order_preflight_nonexistent")
     if status != 404:
         raise ReadinessError("The order endpoint does not reject an unknown server order.")
