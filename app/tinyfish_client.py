@@ -54,6 +54,24 @@ def validate_demo_url(url: str) -> str:
     return url
 
 
+def validate_replay_url(url: str) -> str:
+    """Accept replay carts only from known exact hosts, never look-alikes."""
+
+    parsed = urlparse(url)
+    allowed = {"demo-booking-tau.vercel.app", "localhost", "127.0.0.1"}
+    public_base = os.getenv("PUBLIC_BASE_URL")
+    if public_base:
+        public = urlparse(public_base)
+        if (public.scheme not in {"http", "https"} or not public.hostname or public.username
+                or public.password or public.path not in {"", "/"} or public.query or public.fragment):
+            raise TinyFishError("PUBLIC_BASE_URL must be a plain HTTP(S) origin.")
+        allowed.add(public.hostname.casefold())
+    if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username
+            or parsed.password or parsed.hostname.casefold() not in allowed):
+        raise TinyFishError("Replay execution is restricted to configured exact demo hosts.")
+    return url
+
+
 def preflight_live(url: str) -> None:
     """Do not give an agent an unprotected legacy Confirm button."""
     validate_demo_url(url)

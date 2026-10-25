@@ -124,6 +124,14 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             raise WorkflowError("Checker unavailable; approvals and orders are disabled.", 503)
         return check
 
+    def require_live_key():
+        if os.getenv("REPLAY") != "1" and not os.getenv("TINYFISH_API_KEY"):
+            raise WorkflowError("Live agent execution requires TINYFISH_API_KEY; replay remains available with REPLAY=1.", 503)
+
+    @api.get("/healthz")
+    def healthz():
+        return {"status": "ok"}
+
     @api.get("/health")
     def health():
         with store().connection() as db:
@@ -240,6 +248,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def stage(body: StageRequest):
         if not settings.agent_runs_enabled:
             raise WorkflowError("Agent execution is operator-local; the public server does not run paid agents.", 403)
+        require_live_key()
         guard()
         current = store().task(body.task_id)
         contract = Store._reviewed(current)
@@ -259,6 +268,8 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def run(task_id: str, body: RunRequest):
         if not settings.agent_runs_enabled:
             raise WorkflowError("Agent execution is operator-local; use the public checkout for simulated bookings.", 403)
+        if body.mode == "live":
+            require_live_key()
         guard()
         Store._reviewed(store().task(task_id))
         from .workflow import run_task

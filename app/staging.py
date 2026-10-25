@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 from guard.models import Cart, Contract
 
-from .tinyfish_client import TinyFishError, run_agent
+from .tinyfish_client import TinyFishError, run_agent, validate_replay_url
 
 
 class StagingError(RuntimeError):
@@ -186,6 +186,7 @@ def stage_cart_evidence(cart_url: str, contract: Contract, *, scenario: str | No
     scenario = scenario or _scenario_from_url(cart_url)
     use_replay = replay if replay is not None else os.getenv("REPLAY") == "1"
     if use_replay:
+        validate_replay_url(cart_url)
         cart, hidden = _parse(_load_recording(scenario))
         return StageEvidence(cart, hidden, None, "fixture_replay")
 

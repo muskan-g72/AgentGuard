@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: agentguard-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: REPLAY
+        value: "1"
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: PUBLIC_BASE_URL
+        value: https://agentguard-demo.onrender.com
