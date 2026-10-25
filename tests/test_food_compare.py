@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import pytest
+from urllib.parse import parse_qs, urlparse
 
 from app.food_compare import compare_all, compare_platform, effective_price, rank_options, stage_winner, taste_score
 from guard.food_models import FoodContract
@@ -54,10 +55,10 @@ def test_effective_prices_and_ranking_record_every_rejection(monkeypatch):
 def test_replay_stages_foodhub_extras_as_evidence(monkeypatch):
     monkeypatch.setenv("REPLAY", "1")
     winner = next(option for option in compare_platform(URLS[0]) if option.restaurant == "Spice Route")
-    extras = stage_winner(winner.model_copy(update={"url": winner.url + "?scenario=extras"}), contract())
+    extras = stage_winner(winner.model_copy(update={"url": f"{winner.url}{'&' if '?' in winner.url else '?'}scenario=extras"}), contract())
     assert extras.total == 320
     assert {(item.type, item.price) for item in extras.items} >= {("tip", 30), ("donation", 10)}
-    clean = stage_winner(winner.model_copy(update={"url": winner.url + "?scenario=clean"}), contract())
+    clean = stage_winner(winner.model_copy(update={"url": f"{winner.url}{'&' if '?' in winner.url else '?'}scenario=clean"}), contract())
     assert clean.total == 280
     assert all(item.type not in {"tip", "donation", "membership"} for item in clean.items)
 
@@ -109,3 +110,7 @@ def test_data_food_and_recordings_agree_on_all_options():
         d_coupons = [{k: c[k] for k in sorted(c) if k != "description"} for c in d_opt.get("coupons", [])]
         r_coupons = [{k: c[k] for k in sorted(c) if k != "description"} for c in r_opt.get("coupons", [])]
         assert d_coupons == r_coupons, f"coupons mismatch for {key}"
+        d_parsed = urlparse(f"https://demo-booking-tau.vercel.app{d_opt['url']}")
+        r_parsed = urlparse(r_opt["url"])
+        assert d_parsed.path == r_parsed.path, f"url path mismatch for {key}"
+        assert parse_qs(d_parsed.query) == parse_qs(r_parsed.query), f"url query mismatch for {key}"

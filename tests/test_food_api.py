@@ -62,7 +62,8 @@ def foodhub_option():
 
 
 def fixture_cart(option, scenario):
-    return stage_winner(option.model_copy(update={"url": option.url + f"?scenario={scenario}"}), FoodContract.model_validate(contract()))
+    sep = "&" if "?" in option.url else "?"
+    return stage_winner(option.model_copy(update={"url": f"{option.url}{sep}scenario={scenario}"}), FoodContract.model_validate(contract()))
 
 
 def event_types(client, task_id):

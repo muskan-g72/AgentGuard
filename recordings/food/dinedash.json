@@ -2,8 +2,8 @@
   "fixture": true,
   "fixture_note": "Demo fixture, not a live TinyFish recording.",
   "options": [
-    {"platform": "DineDash", "restaurant": "Spice Route", "dish": "Paneer Butter Masala combo", "veg": true, "item_price": 275, "rating": 4.4, "rating_count": 950, "eta_minutes": 30, "fees": {"delivery": 30, "platform": 3, "packaging": 0}, "coupons": [], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/dinedash/spice-route-paneer"},
-    {"platform": "DineDash", "restaurant": "Green Bowl", "dish": "Veg Thali", "veg": true, "item_price": 240, "rating": 4.1, "rating_count": 300, "eta_minutes": 30, "fees": {"delivery": 20, "platform": 5, "packaging": 10}, "coupons": [{"code": "WELCOME30", "type": "flat", "value": 30, "max_discount": null, "min_order": 200}], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/dinedash/green-bowl-thali"}
+    {"platform": "DineDash", "restaurant": "Spice Route", "dish": "Paneer Butter Masala combo", "veg": true, "item_price": 275, "rating": 4.4, "rating_count": 950, "eta_minutes": 30, "fees": {"delivery": 30, "platform": 3, "packaging": 0}, "coupons": [], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/dinedash/dish.html?platform=dinedash&dish=dd-spice-route-paneer"},
+    {"platform": "DineDash", "restaurant": "Green Bowl", "dish": "Veg Thali", "veg": true, "item_price": 240, "rating": 4.1, "rating_count": 300, "eta_minutes": 30, "fees": {"delivery": 20, "platform": 5, "packaging": 10}, "coupons": [{"code": "WELCOME30", "type": "flat", "value": 30, "max_discount": null, "min_order": 200}], "review_snippets": [], "url": "https://demo-booking-tau.vercel.app/dinedash/dish.html?platform=dinedash&dish=dd-green-bowl-thali"}
   ],
   "staged_carts": {}
 }

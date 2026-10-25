@@ -61,7 +61,8 @@ class ReplayScenarioBrowser:
         self.scenario = scenario
 
     def stage_winner(self, option, food_contract):
-        staged_option = option.model_copy(update={"url": option.url + f"?scenario={self.scenario}"})
+        sep = "&" if "?" in option.url else "?"
+        staged_option = option.model_copy(update={"url": f"{option.url}{sep}scenario={self.scenario}"})
         return stage_winner(staged_option, food_contract)
 
     def fix_cart(self, option, cart, remove_item_ids):
@@ -78,7 +79,8 @@ class LiveScenarioBrowser(TinyFishFoodBrowser):
         self.scenario = scenario
 
     def stage_winner(self, option, food_contract):
-        staged_option = option.model_copy(update={"url": option.url + f"?scenario={self.scenario}"})
+        sep = "&" if "?" in option.url else "?"
+        staged_option = option.model_copy(update={"url": f"{option.url}{sep}scenario={self.scenario}"})
         return super().stage_winner(staged_option, food_contract)
 
 
