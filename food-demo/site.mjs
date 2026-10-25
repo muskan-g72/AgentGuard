@@ -6,7 +6,11 @@ const slug = document.body.dataset.platform;
 let catalog, platform, state, option;
 const charge = value => value < 0 ? '− ' + money(-value) : money(value);
 const vegBadge = row => `<span class="diet ${row.veg ? 'veg' : 'nonveg'}"><i></i>${row.veg ? 'Vegetarian' : 'Non-vegetarian'}</span>`;
-const plate = (row, large = false) => `<div class="dish-art ${large ? 'large' : ''}" aria-hidden="true"><span class="art-label">${esc(row.restaurant)}</span><img src="/food-demo/plate.svg" alt=""><span class="art-stamp">${row.veg ? 'PLANT-LED COMFORT' : 'FROM THE KITCHEN'}</span></div>`;
+const plate = (row, large = false) => {
+  const image = row?.image || '/food-demo/plate.svg';
+  const alt = `${row?.dish || 'Dish'} from ${row?.restaurant || 'Restaurant'}`;
+  return `<div class="dish-art ${large ? 'large' : ''}"><span class="art-label">${esc(row.restaurant)}</span><img class="dish-photo" src="${esc(image)}" alt="${esc(alt)}" onerror="this.onerror=null;this.src='/food-demo/plate.svg';"><span class="art-stamp">${row.veg ? 'PLANT-LED COMFORT' : 'FROM THE KITCHEN'}</span></div>`;
+};
 
 function nav() {
   return `<div class="fixture-bar">FICTIONAL FOOD DEMO <span>All dishes, ratings and reviews are synthetic. No real orders or payments.</span></div><header class="site-header"><a class="brand" href="/${platform.id}/?scenario=${state.scenario}"><span class="brand-icon">${esc(platform.icon)}</span>${esc(platform.name)}<small>THE FICTIONAL FOOD EDITION</small></a><nav aria-label="Platforms">${catalog.platforms.map(row => `<a class="${row.id === platform.id ? 'active' : ''}" href="/${row.id}/?scenario=${state.scenario}" ${row.id === platform.id ? 'aria-current="page"' : ''}>${esc(row.name)}</a>`).join('')}<a href="/compare/">Compare</a></nav><a class="sandbox-link" href="/food-demo/">Demo guide ↗</a></header><div class="context-strip"><span>◉ Serving the demo neighbourhood</span><label for="scenario">Scenario <select id="scenario">${SCENARIOS.map(value => `<option ${value === state.scenario ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div>`;

@@ -332,6 +332,13 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def food_catalog_asset():
         return FileResponse(ROOT / "data" / "food.json", media_type="application/json")
 
+    @api.get("/food-demo/images/{image}")
+    def food_demo_image(image: str):
+        image_path = ROOT / "food-demo" / "images" / image
+        if not image_path.is_file():
+            raise HTTPException(404)
+        return FileResponse(image_path)
+
     @api.get("/food-demo/{asset}")
     def food_demo_asset(asset: str):
         allowed = {"index.html", "site.mjs", "logic.mjs", "styles.css", "plate.svg"}
