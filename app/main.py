@@ -1,4 +1,4 @@
-﻿"""Local simulated booking API and same-origin demo website."""
+"""Local simulated booking API and same-origin demo website."""
 
 from __future__ import annotations
 
@@ -78,11 +78,13 @@ class RunRequest(Message):
 class FoodCompareRequest(Message):
     contract: FoodContract
     platform_urls: list[str]
+    scenario: str | None = None
 
 
 class FoodRunRequest(Message):
     task_id: str
     guard_off: bool = False
+    scenario: str | None = None
 
 
 def create_app(database: str | Path | None = None) -> FastAPI:
@@ -277,6 +279,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
             ranking.ranked[0] if ranking.ranked else None,
             ranked=ranking.ranked,
             dropped=dropped,
+            scenario=body.scenario,
         )
         return {
             "task_id": task["task_id"],
@@ -298,7 +301,7 @@ def create_app(database: str | Path | None = None) -> FastAPI:
                 body.task_id, task["status"], "Guard-off mode enabled for the before/after food demo.",
                 event_type="food_guard_off_enabled", guard_off=True,
             )
-        return run_food_task(store(), body.task_id, api.state.food_browser_factory())
+        return run_food_task(store(), body.task_id, api.state.food_browser_factory(), scenario=body.scenario)
 
     assets = {"index.html", "checkout.html", "confirmation.html", "app.js", "checkout.js", "styles.css"}
     food_pages = {"index.html", "dish.html", "checkout.html", "confirmation.html"}
@@ -329,8 +332,18 @@ def create_app(database: str | Path | None = None) -> FastAPI:
     def food_demo_index():
         return FileResponse(ROOT / "food-demo" / "index.html")
 
+    @api.get("/food-demo")
+    def food_demo_bare():
+        return FileResponse(ROOT / "food-demo" / "index.html")
+
     @api.get("/{platform}/")
     def food_platform_index(platform: str):
+        if platform not in food_platforms:
+            raise HTTPException(404)
+        return FileResponse(ROOT / platform / "index.html")
+
+    @api.get("/{platform}")
+    def food_platform_bare(platform: str):
         if platform not in food_platforms:
             raise HTTPException(404)
         return FileResponse(ROOT / platform / "index.html")

@@ -83,12 +83,16 @@ def commit_food_task(store: Store, task_id: str, browser: FoodBrowser, option: F
     return True
 
 
-def run_food_task(store: Store, task_id: str, browser: FoodBrowser) -> dict:
+def run_food_task(store: Store, task_id: str, browser: FoodBrowser, *, scenario: str | None = None) -> dict:
     """Stage, check, make one bounded fix, re-check, and conditionally commit."""
 
     task = store.food_task(task_id)
     contract = FoodContract.model_validate(task["contract"])
     option = FoodOption.model_validate(task.get("recommended"))
+    scenario = scenario or task.get("scenario")
+    if scenario and scenario != "food":
+        sep = "&" if "?" in option.url else "?"
+        option = option.model_copy(update={"url": f"{option.url}{sep}scenario={scenario}"})
     guard_off = bool(task.get("guard_off"))
     expected_price = effective_price(option)
     try:

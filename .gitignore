@@ -14,3 +14,5 @@ deploy/generated/
 /AgentGuard/
 /dist/
 ui/test-results/
+
+.pytest-temp/

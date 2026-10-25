@@ -227,8 +227,15 @@ def compare_platform(platform_url: str, *, timeout_seconds: int = _DEFAULT_TIMEO
     """Extract visible dish options from one platform, with one parse retry."""
 
     platform = _platform_name(platform_url)
+    scenario = parse_qs(urlparse(platform_url).query).get("scenario", [None])[0]
     if os.getenv("REPLAY") == "1":
-        return [FoodOption.model_validate(option) for option in _load_fixture(platform).get("options", [])]
+        options = [FoodOption.model_validate(option) for option in _load_fixture(platform).get("options", [])]
+        if scenario:
+            options = [
+                opt.model_copy(update={"url": f"{opt.url}&scenario={scenario}" if "?" in opt.url else f"{opt.url}?scenario={scenario}"})
+                for opt in options
+            ]
+        return options
     first_error: Exception | None = None
     for retry in (False, True):
         try:

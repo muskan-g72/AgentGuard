@@ -1,8 +1,0 @@
-﻿<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Checkout · AgentGuard Demo</title><link rel="stylesheet" href="styles.css"><script src="app.js" defer></script><script src="checkout.js" defer></script></head>
-<body><main><header><h1>Review booking</h1><p class="muted">All orders are simulated. No payment is taken.</p><p>Cart ID: <span id="cart-id"></span></p></header>
-<section class="card" id="cart"></section><div id="total-wrap" class="card total">Total: <span id="total" data-total="unknown">Loading</span></div><p id="passengers" class="muted"></p>
-<section class="card" id="authorization"><h2>Review your instructions</h2><p>Review the route, date, passenger count, budget and preferences before authorizing the guard. A fallback draft is not authorization.</p><label>Maximum total in rupees<input id="budget" type="number" min="0" step="1" value="1000"></label><button id="prepare-contract" type="button" disabled>Prepare instructions</button>
-<form id="review-form" hidden><pre id="contract-preview"></pre><div id="questions"></div><label><input id="authorize-contract" type="checkbox" required> I reviewed these instructions and authorize this simulated booking.</label><button type="submit">Authorize instructions</button></form><p id="review-status"></p></section>
-<p id="guard-status" role="status">Connecting to the local booking server…</p><button id="check-cart" type="button" disabled>Check booking</button> <button id="check-fix" type="button" disabled>Check and remove unauthorized extras</button> <button id="confirm" type="button" data-confirmation-protected="true" disabled>Confirm booking</button>
-</main></body></html>

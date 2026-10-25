@@ -23,28 +23,75 @@ Food contract fields are `diet`, `quantity`, `max_total`, `min_rating`, `max_eta
 
 Orders are simulated. The live food paths and live TinyFish runs are **Planned** for verification; checked-in food fixtures are clearly labelled fixtures, not live recordings.
 
-## Run locally
+## Installation, Test, and Run Commands
 
+### 1. Installation
+
+Create and activate a virtual environment, then install dependencies from `requirements.txt`:
+
+**Windows (PowerShell):**
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-Run the replay food evaluator:
+**Linux / macOS (Bash):**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
+*(Optional: If running browser UI integration tests from scratch in a fresh environment, ensure Playwright browsers are installed: `python -m playwright install chromium`)*
+
+### 2. Testing
+
+Run the full automated test suite:
+
+```bash
+python -m pytest -q
+```
+
+To run only the food vertical tests:
+
+```bash
+python -m pytest tests/test_food_api.py tests/test_food_compare.py tests/test_food_rank.py tests/test_eval_food.py -q
+```
+
+### 3. Running the API Server
+
+Start the local FastAPI development server:
+
+**Windows (PowerShell):**
+```powershell
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+**Linux / macOS (Bash):**
+```bash
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+The API will be available at `http://127.0.0.1:8000`, with interactive OpenAPI documentation at `http://127.0.0.1:8000/docs`.
+
+### 4. Running the Food Evaluator
+
+Run the benchmark evaluation in fixture replay mode:
+
+**Windows (PowerShell):**
 ```powershell
 $env:REPLAY="1"
-.\.venv\Scripts\python.exe scripts\eval_food.py
+python scripts\eval_food.py
 ```
 
-It writes `docs/eval-results.md`. `--live` disables replay and can create TinyFish Agent API runs; use it only after the food paths are deployed and `TINYFISH_API_KEY` is available locally.
-
-Start the API:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+**Linux / macOS (Bash):**
+```bash
+export REPLAY="1"
+python scripts/eval_food.py
 ```
+
+Results are recorded to `docs/eval-results.md`. (Use `--live` only when running against live endpoints with `TINYFISH_API_KEY` set).
 
 ## Known limits
 
