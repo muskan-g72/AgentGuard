@@ -22,7 +22,7 @@ function listing() {
   return `<section class="hero"><div><p class="eyebrow">THE ${esc(platform.name.toUpperCase())} MENU</p><h1>${esc(platform.tagline)}</h1><p>Something warming, something satisfying.<br>See the dish. Read the reviews. Check the whole bill.</p><span class="hero-count">${rows.length} dishes · all available for simulated checkout</span></div><div class="hero-plate">${plate(rows[0], true)}</div></section><aside class="promo"><span class="promo-icon">%</span><div><strong>${esc(platform.banner)}</strong><p>${esc(platform.banner_note)}</p></div><span class="demo-label">FICTIONAL OFFER</span></aside><div class="section-heading"><div><p class="eyebrow">A LITTLE INSPIRATION</p><h2>On the menu today</h2></div><span class="muted">Item prices shown. Fees and coupons at checkout.</span></div><section class="dish-grid" aria-label="Available dishes">${rows.map(row => {
     const candidate = linksFor(row); const bill = quote(row, platform, candidate);
     return `<article class="dish-card" data-dish-id="${esc(row.id)}"><a class="art-link" href="${pageURL(platform, 'dish', candidate)}" aria-label="View ${esc(row.dish)}">${plate(row)}</a><div class="card-body"><div class="card-badges">${vegBadge(row)}${row.fees.delivery === 0 ? '<span class="free-delivery">FREE delivery</span>' : ''}</div><h2><a href="${pageURL(platform, 'dish', candidate)}">${esc(row.dish)}</a></h2><p class="restaurant">${esc(row.restaurant)}</p><div class="facts"><span class="rating">★ ${row.rating.toFixed(1)} <small>(${row.rating_count})</small></span><span>◷ ${row.eta_minutes} min</span></div><div class="card-price"><strong>${money(row.item_price)}</strong><span>per dish</span><a class="text-link" href="${pageURL(platform, 'dish', candidate)}">View dish →</a></div><p class="effective-note">${money(bill.total - state.tip - state.donation - (state.gold ? platform.membership : 0))} incl. fees & eligible coupon for ${state.qty}</p></div></article>`;
-  }).join('')}</section>`;
+  }).join('')}</section><section class="guard-panel" aria-labelledby="guard-heading"><p class="eyebrow">AGENTGUARD PROTECTED WORKFLOW</p><h2 id="guard-heading">Compare, check, fix, then simulate</h2><p>Run the same vegetarian contract through the guarded backend. It stages before ordering, removes only checker-listed extras, re-checks, and commits only after allow.</p><button id="run-guarded" class="button primary" type="button">Run protected comparison</button><div id="guard-output" role="status" aria-live="polite"></div></section>`;
 }
 function detail() {
   const bill = quote(option, platform, state);
@@ -91,6 +91,43 @@ function wireCheckout() {
     location.href = `/${platform.id}/confirmation.html?${params}`;
   });
 }
+function wireGuardedWorkflow() {
+  const button = document.getElementById('run-guarded');
+  const output = document.getElementById('guard-output');
+  if (!button || !output) return;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    output.textContent = 'Comparing FoodHub, QuickBite, and DineDash…';
+    const payload = { contract: { diet: 'veg', quantity: 1, max_total: 300, min_rating: 4.2, max_eta_minutes: 45, allow_extras: false, priority: 'price' }, platform_urls: ['/foodhub/', '/quickbite/', '/dinedash/'].map(path => new URL(path, location.origin).href) };
+    try {
+      const compared = await fetch('/food/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!compared.ok) throw new Error(`Comparison failed (${compared.status}).`);
+      const comparison = await compared.json();
+      const ranked = comparison.ranked.map(row => {
+        const sourcePlatform = catalog.platforms.find(item => item.name === row.platform);
+        const sourceState = { platform: sourcePlatform.id, dish: row.id, qty: 1, coupon: bestCoupon(row, 1), tip: 0, donation: 0, gold: 0 };
+        return `${esc(row.restaurant)} / ${esc(row.dish)}: ${money(quote(row, sourcePlatform, sourceState).total)}`;
+      }).join('<br>');
+      const dropped = comparison.dropped.map(entry => `${esc(entry.option.restaurant)} / ${esc(entry.option.dish)} - ${esc(entry.reasons.join('; '))}`).join('<br>') || 'None';
+      output.innerHTML = `<p><strong>Contract:</strong> veg, quantity 1, max Rs 300, rating 4.2+, ETA 45 min, no extras, prioritize price.</p><p><strong>Compare → rank:</strong> ${comparison.ranked.length} option(s) survived; ${comparison.dropped.length} dropped.</p><p><strong>Ranked:</strong><br>${ranked}</p><p><strong>Dropped with reasons:</strong><br>${dropped}</p><p><strong>Stage cart → guard decision → fix → re-check → simulated order</strong></p><button id="run-food-task" class="button" type="button">Stage and run guarded cart</button><div id="guard-task-output"></div>`;
+      document.getElementById('run-food-task').addEventListener('click', async () => {
+        const taskOutput = document.getElementById('guard-task-output');
+        try {
+          const run = await fetch('/food/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: comparison.task_id }) });
+          if (!run.ok) throw new Error(`Guarded run failed (${run.status}).`);
+          const task = await run.json();
+          const types = task.events.map(event => event.type);
+          taskOutput.innerHTML = `<p><strong>${esc(task.status)}</strong>: ${esc(types.join(' → '))}</p><p>${task.status === 'done' ? 'Simulated order recorded after allow.' : 'No simulated order was recorded.'}</p>`;
+        } catch (error) {
+          taskOutput.innerHTML = `<p role="alert">${esc(error.message)}</p>`;
+        }
+      });
+    } catch (error) {
+      output.innerHTML = `<p role="alert">${esc(error.message)}</p>`;
+      button.disabled = false;
+    }
+  });
+}
 async function init() {
   try {
     const response = await fetch('/data/food.json', { cache: 'no-store' });
@@ -107,7 +144,7 @@ async function init() {
       // New scenarios deliberately reset selections; reopening a saved URL does not.
       location.href = `/${platform.id}/${page === 'listing' ? '' : page + '.html'}?platform=${platform.id}&dish=${state.dish}&scenario=${event.target.value}`;
     });
-    wireCheckout(); document.documentElement.dataset.foodReady = 'true';
+    wireCheckout(); wireGuardedWorkflow(); document.documentElement.dataset.foodReady = 'true';
   } catch (error) {
     root.innerHTML = `<main><section class="error-card" role="alert"><p class="eyebrow">DEMO PAUSED</p><h1>We couldn’t open this meal.</h1><p>${esc(error.message)}</p><a class="button primary" href="/${esc(slug)}/">Reset to the menu</a></section></main>`;
     document.documentElement.dataset.foodError = 'true';
